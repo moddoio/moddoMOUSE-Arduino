@@ -454,6 +454,37 @@ int8_t moddoMOUSE::getLiftDistance(enum liftDistanceOptions *liftDistance)
     return 0;
 }
 
+int8_t moddoMOUSE::setAngleTune(int8_t angle)
+{
+    if ((angle < ANGLE_TUNE_MIN) || (angle > ANGLE_TUNE_MAX)) {
+        return -EINVAL;
+    }
+
+    int8_t bytesWritten = i2cWrite(REG_ANGLE_TUNE, &angle, sizeof(angle));
+    if (bytesWritten != sizeof(angle)) {
+        return -EIO;
+    }
+
+    return 0;
+}
+
+int8_t moddoMOUSE::getAngleTune(int8_t *angle)
+{
+    if (angle == NULL) {
+        return -EINVAL;
+    }
+
+    uint8_t value;
+
+    int8_t bytesRead = i2cRead(REG_ANGLE_TUNE, &value, sizeof(value));
+    if (bytesRead != sizeof(value)) {
+        return -EIO;
+    }
+
+    *angle = (int8_t)value;
+
+    return 0;
+}
 
 // Initiate communication with the moddoMOUSE. Will return -EIO if communication failed.
 int8_t moddoMOUSE::begin(uint8_t address, TwoWire& wirePort)
