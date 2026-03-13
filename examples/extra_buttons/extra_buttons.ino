@@ -75,8 +75,6 @@ void loop()
     }
     if (buttonBits != lastButtonBits) {
         lastButtonBits = buttonBits;
-        Serial.print("Writing button register = ");
-        Serial.println(buttonBits, HEX);
 
         ret = mouse.writeButtons(&buttonBits);
         if (ret < 0) {
@@ -84,5 +82,8 @@ void loop()
             mouseConnected = false;
             return;
         }
+
+        Serial.print("Wrote button register = ");
+        Serial.println(buttonBits, HEX);
     }
 }

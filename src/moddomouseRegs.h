@@ -41,8 +41,8 @@ enum register_index {
     REG_MOUSE_Y_L,
     // End of motion registers
 
-    // Not currently used
-    REG_RESERVED,
+    // Angle Tune
+    REG_ANGLE_TUNE,
 
     // Main buttons state
     REG_MAIN_BUTTONS,

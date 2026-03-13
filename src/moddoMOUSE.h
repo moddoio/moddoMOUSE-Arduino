@@ -97,6 +97,9 @@ enum liftDistanceOptions: uint8_t {
 };
 #define LIFT_DISTANCE_MAX LIFT_DISTANCE_2MM
 
+#define ANGLE_TUNE_MIN -30
+#define ANGLE_TUNE_MAX 30
+
 class moddoMOUSE
 {
     public:
@@ -113,7 +116,6 @@ class moddoMOUSE
         int8_t readMainButtons(bool *left, bool *right, bool *middle, bool *back, bool *forward);
 
         int8_t writeButtons(uint16_t *button_bits);
-        int8_t writeInterruptEnable(uint8_t *int_en_bits);
 
         int8_t setBatteryChangeInterrupt(bool enable);
         int8_t setMotionInterrupt(bool enable);
@@ -130,6 +132,8 @@ class moddoMOUSE
         int8_t getPollingRate(enum pollingRateOptions *pollingRate);
         int8_t setLiftDistance(enum liftDistanceOptions liftDistance);
         int8_t getLiftDistance(enum liftDistanceOptions *liftDistance);
+        int8_t setAngleTune(int8_t angle);
+        int8_t getAngleTune(int8_t *angle);
 
     private:
         int i2cRead(uint8_t reg, void *buf, uint8_t length);
