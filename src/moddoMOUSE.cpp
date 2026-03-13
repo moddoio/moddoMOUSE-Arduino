@@ -486,6 +486,63 @@ int8_t moddoMOUSE::getAngleTune(int8_t *angle)
     return 0;
 }
 
+
+int8_t moddoMOUSE::setVerticalWheel(int8_t delta)
+{
+    int8_t bytesWritten = i2cWrite(REG_V_WHEEL, &delta, sizeof(delta));
+    if (bytesWritten != sizeof(delta)) {
+        return -EIO;
+    }
+
+    return 0;
+}
+
+int8_t moddoMOUSE::getVerticalWheel(int8_t *delta)
+{
+    if (delta == NULL) {
+        return -EINVAL;
+    }
+
+    uint8_t value;
+
+    int8_t bytesRead = i2cRead(REG_V_WHEEL, &value, sizeof(value));
+    if (bytesRead != sizeof(value)) {
+        return -EIO;
+    }
+
+    *delta = (int8_t)value;
+
+    return 0;
+}
+
+int8_t moddoMOUSE::setHorizontalWheel(int8_t delta)
+{
+    int8_t bytesWritten = i2cWrite(REG_H_WHEEL, &delta, sizeof(delta));
+    if (bytesWritten != sizeof(delta)) {
+        return -EIO;
+    }
+
+    return 0;
+}
+
+int8_t moddoMOUSE::getHorizontalWheel(int8_t *delta)
+{
+    if (delta == NULL) {
+        return -EINVAL;
+    }
+
+    uint8_t value;
+
+    int8_t bytesRead = i2cRead(REG_H_WHEEL, &value, sizeof(value));
+    if (bytesRead != sizeof(value)) {
+        return -EIO;
+    }
+
+    *delta = (int8_t)value;
+
+    return 0;
+}
+
 // Initiate communication with the moddoMOUSE. Will return -EIO if communication failed.
 int8_t moddoMOUSE::begin(uint8_t address, TwoWire& wirePort)
 {

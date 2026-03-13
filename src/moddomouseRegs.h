@@ -47,11 +47,10 @@ enum register_index {
     // Main buttons state
     REG_MAIN_BUTTONS,
 
-    // Fault flags
-    REG_FAULT_FLAGS,
-
-    // Vertical wheel accumulated value. Will accumulate until read
-    REG_WHEEL,
+    // Vertical wheel accumulated value. Will accumulate until read/write
+    REG_V_WHEEL,
+    // Horizontal wheel accumulated value. Will accumulate until read/write
+    REG_H_WHEEL,
 
     // Interrupt enable bits
     // Must set the appropriate bits to receive an interrupt on the INT pin
