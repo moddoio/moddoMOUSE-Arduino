@@ -135,6 +135,12 @@ class moddoMOUSE
         int8_t setAngleTune(int8_t angle);
         int8_t getAngleTune(int8_t *angle);
 
+        // Scroll wheels
+        int8_t setVerticalWheel(int8_t delta);
+        int8_t getVerticalWheel(int8_t *delta);
+        int8_t setHorizontalWheel(int8_t delta);
+        int8_t getHorizontalWheel(int8_t *delta);
+
     private:
         int i2cRead(uint8_t reg, void *buf, uint8_t length);
         int i2cWrite(uint8_t reg, void *buf, uint8_t length);
