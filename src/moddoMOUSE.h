@@ -115,7 +115,7 @@ class moddoMOUSE
         int8_t readMotion(int16_t *x, int16_t *y);
         int8_t readMainButtons(bool *left, bool *right, bool *middle, bool *back, bool *forward);
 
-        int8_t writeButtons(uint16_t *button_bits);
+        int8_t writeButtons(uint32_t button_bits);
 
         int8_t setBatteryChangeInterrupt(bool enable);
         int8_t setMotionInterrupt(bool enable);

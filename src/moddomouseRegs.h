@@ -15,7 +15,7 @@
 enum register_index {
     // Unique device identifier
     REG_DEVICE_ID,
-    REG_DEVICE_ID_L,
+    REG_DEVICE_ID_H,
 
     // Product ID (0x01 for moddoMOUSE)
     REG_PROD_ID,
@@ -26,7 +26,7 @@ enum register_index {
     // Battery and charger status, usually read all in one transfer
     // Can enable REG_REG_INT_EN_BATTERY_CHANGE to get an interrupt when any of these change
     REG_BATTERY_VOLTAGE,
-    REG_BATTERY_VOLTAGE_L,
+    REG_BATTERY_VOLTAGE_H,
     REG_BATTERY_CAPACITY,
     REG_BATTERY_CHARGER_STATUS,
     // End of battery and charger status
@@ -36,9 +36,9 @@ enum register_index {
     // Motion delta accumulated value. Will accumulate until read
     // Must read all 4 bytes in one transaction
     REG_MOUSE_X,
-    REG_MOUSE_X_L,
+    REG_MOUSE_X_H,
     REG_MOUSE_Y,
-    REG_MOUSE_Y_L,
+    REG_MOUSE_Y_H,
     // End of motion registers
 
     // Angle Tune
@@ -61,13 +61,15 @@ enum register_index {
 
     // Setting: DPI/CPI (Counts Per Inch)
     REG_CPI_X,
-    REG_CPI_X_L,
+    REG_CPI_X_H,
     REG_CPI_Y,
-    REG_CPI_Y_L,
+    REG_CPI_Y_H,
 
     // Extra buttons from the expansion boards. Write bits to send keyboard key presses to the PC
-    REG_EXP_BOARD_BUTTONS,
-    REG_EXP_BOARD_BUTTONS_L,
+    REG_EXP_BOARD_BUTTONS_0,
+    REG_EXP_BOARD_BUTTONS_1,
+    REG_EXP_BOARD_BUTTONS_2,
+    REG_EXP_BOARD_BUTTONS_3,
 
     NUM_REGISTERS,
 };
