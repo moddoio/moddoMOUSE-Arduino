@@ -52,7 +52,7 @@ bool connect()
 
 void loop()
 {
-    static uint16_t lastButtonBits = 0;
+    static uint32_t lastButtonBits = 0;
     static bool mouseConnected = false;
     int ret;
 
@@ -69,14 +69,14 @@ void loop()
     for (uint8_t pin = BUTTON_PIN_START; pin <= BUTTON_PIN_END; pin++) {
         buttons[pin - BUTTON_PIN_START] = !digitalRead(pin);
     }
-    uint16_t buttonBits = 0;
+    uint32_t buttonBits = 0;
     for (uint8_t i = 0; i < NUM_BUTTONS; i++) {
         buttonBits |= (buttons[i] & 1) << i;
     }
     if (buttonBits != lastButtonBits) {
         lastButtonBits = buttonBits;
 
-        ret = mouse.writeButtons(&buttonBits);
+        ret = mouse.writeButtons(buttonBits);
         if (ret < 0) {
             Serial.println("Couldn't write buttons: error");
             mouseConnected = false;

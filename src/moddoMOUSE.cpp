@@ -155,17 +155,13 @@ int8_t moddoMOUSE::readMainButtons(bool *left, bool *right, bool *middle, bool *
 /**
  * @brief Write expansion board button states
  *
- * Each bit (out of 16) is a different button. Set the bit (1) when button is down, clear it (0) when up.
+ * Each bit (out of 32) is a different button. Set the bit (1) when button is down, clear it (0) when up.
  *
  */
-int8_t moddoMOUSE::writeButtons(uint16_t *button_bits)
+int8_t moddoMOUSE::writeButtons(uint32_t button_bits)
 {
-    if (button_bits == NULL) {
-        return -EINVAL;
-    }
-
-    int8_t bytesWritten = i2cWrite(REG_EXP_BOARD_BUTTONS, button_bits, sizeof(*button_bits));
-    if (bytesWritten != sizeof(*button_bits)) {
+    int8_t bytesWritten = i2cWrite(REG_EXP_BOARD_BUTTONS_0, &button_bits, sizeof(button_bits));
+    if (bytesWritten != sizeof(button_bits)) {
         return -EIO;
     }
 
