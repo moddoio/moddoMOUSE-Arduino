@@ -11,12 +11,26 @@
 
 #include <moddoMOUSE.h>
 
-#define DPI_CHANGE_BUTTON_PIN 3
+// Change this to 0 if you don't want low power support
+#define USE_LOW_POWER_IF_SUPPORTED 1
+
+#if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
+// Low power library only supported on some Arduino platforms
+#include <ArduinoLowPower.h>
+#define USE_LOW_POWER 1
+#else
+#define USE_LOW_POWER 0
+#endif
+
+#define DPI_CHANGE_BUTTON_PIN 1
 
 #ifndef ARRAY_SIZE
     // helpful macro
     #define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 #endif
+
+// Don't output on serial port in low power mode
+bool serialOutput = !USE_LOW_POWER;
 
 moddoMOUSE mouse;
 
@@ -31,44 +45,58 @@ uint8_t currentDpiIndex = 0;
 // Use default of 1600 if not found
 #define DEFAULT_DPI_INDEX 2
 
+void onWakeup()
+{
+    // Nothing to do in here
+}
+
 void setup()
 {
-    Serial.begin(9600);
+    if (serialOutput) Serial.begin(9600);
 
     pinMode(DPI_CHANGE_BUTTON_PIN, INPUT_PULLUP);
+#if USE_LOW_POWER
+    LowPower.attachInterruptWakeup(DPI_CHANGE_BUTTON_PIN, onWakeup, FALLING);
+#endif
 
-    Serial.println("setup done");
-    Serial.flush();
-    delay(2000);
+    if (serialOutput) {
+        Serial.println("setup done");
+        Serial.flush();
+        delay(2000);
+    }
 }
 
 bool connect()
 {
     if (mouse.begin() == 0) {
-        Serial.println("Connected to moddoMOUSE");
+        if (serialOutput) Serial.println("Connected to moddoMOUSE");
     } else {
-        Serial.println("Couldn't connect to moddoMOUSE");
+        if (serialOutput) Serial.println("Couldn't connect to moddoMOUSE");
         return false;
     }
 
     uint16_t deviceId;
     if (mouse.readDeviceID(&deviceId) < 0) {
-        Serial.println("Couldn't read device ID: error");
+        if (serialOutput) Serial.println("Couldn't read device ID: error");
         return false;
     }
 
-    Serial.print("Device ID = ");
-    Serial.println(deviceId, HEX);
+    if (serialOutput) {
+        Serial.print("Device ID = ");
+        Serial.println(deviceId, HEX);
+    }
 
     uint16_t x;
     uint16_t y;
     if (mouse.getDpiSettings(&x, &y) < 0) {
-        Serial.println("Couldn't get DPI settings: error");
+        if (serialOutput) Serial.println("Couldn't get DPI settings: error");
         return false;
     }
 
-    Serial.print("DPI X = ");
-    Serial.println(x);
+    if (serialOutput) {
+        Serial.print("DPI X = ");
+        Serial.println(x);
+    }
 
     uint8_t i = 0;
     for(i = 0; i < ARRAY_SIZE(dpiOptions); i++) {
@@ -84,7 +112,7 @@ bool connect()
         x = dpiOptions[currentDpiIndex];
         y = dpiOptions[currentDpiIndex];
         if (mouse.setDpiSettings(x, y) < 0) {
-            Serial.println("Couldn't set DPI settings: error");
+            if (serialOutput) Serial.println("Couldn't set DPI settings: error");
             return false;
         }
     }
@@ -104,6 +132,11 @@ void loop()
         }
     }
 
+#if USE_LOW_POWER
+    // Sleep until button interrupt causes wakeup
+    LowPower.deepSleep();
+#endif
+
     bool pressed = !digitalRead(DPI_CHANGE_BUTTON_PIN);
     if (pressed) {
         while (!digitalRead(DPI_CHANGE_BUTTON_PIN)) {
@@ -117,11 +150,13 @@ void loop()
         uint16_t x = dpiOptions[currentDpiIndex];
         uint16_t y = dpiOptions[currentDpiIndex];
 
-        Serial.print("Changing DPI to ");
-        Serial.println(x);
+        if (serialOutput) {
+            Serial.print("Changing DPI to ");
+            Serial.println(x);
+        }
 
         if (mouse.setDpiSettings(x, y) < 0) {
-            Serial.println("Couldn't set DPI settings: error");
+            if (serialOutput) Serial.println("Couldn't set DPI settings: error");
             mouseConnected = false;
             return;
         }
