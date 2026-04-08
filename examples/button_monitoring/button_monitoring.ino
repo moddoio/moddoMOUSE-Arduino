@@ -11,7 +11,7 @@
 
 #include <moddoMOUSE.h>
 
-#define INTERRUPT_PIN 2
+#define INTERRUPT_PIN 1
 
 moddoMOUSE mouse;
 
@@ -70,7 +70,7 @@ void loop()
     bool forward;
     ret = mouse.readMainButtons(&left, &right, &middle, &back, &forward);
     if (ret < 0) {
-        Serial.println("Couldn't read motion: error");
+        Serial.println("Couldn't read buttons: error");
         mouseConnected = false;
         return;
     }

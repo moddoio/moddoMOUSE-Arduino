@@ -45,10 +45,12 @@ uint8_t currentDpiIndex = 0;
 // Use default of 1600 if not found
 #define DEFAULT_DPI_INDEX 2
 
+#if USE_LOW_POWER
 void onWakeup()
 {
     // Nothing to do in here
 }
+#endif
 
 void setup()
 {
@@ -134,7 +136,7 @@ void loop()
 
 #if USE_LOW_POWER
     // Sleep until button interrupt causes wakeup
-    LowPower.deepSleep();
+    LowPower.sleep();
 #endif
 
     bool pressed = !digitalRead(DPI_CHANGE_BUTTON_PIN);
