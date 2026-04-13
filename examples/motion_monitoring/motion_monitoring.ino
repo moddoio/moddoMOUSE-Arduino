@@ -11,15 +11,25 @@
 
 #include <moddoMOUSE.h>
 
-// Change this to 0 if you don't want low power support
+// Change this to 0 if you don't want low power support (easier when debugging).
+// But be warned, if you don't use it the Arduino power consumption will be ~250x higher at idle
+// and will drain the mouse battery.
 #define USE_LOW_POWER_IF_SUPPORTED 1
 
 #if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
-// Low power library only supported on some Arduino platforms
-#include <ArduinoLowPower.h>
-#define USE_LOW_POWER 1
+    // Low power library only supported on some Arduino platforms
+    #include <ArduinoLowPower.h>
+    #define USE_LOW_POWER 1
 #else
-#define USE_LOW_POWER 0
+    #define USE_LOW_POWER 0
+#endif
+
+#ifndef LED_STATE_ON
+    #ifdef ARDUINO_SEEED_XIAO_M0
+        #define LED_STATE_ON LOW
+    #else
+        #define LED_STATE_ON HIGH
+    #endif
 #endif
 
 #define INTERRUPT_PIN 1
@@ -42,6 +52,15 @@ void setup()
 {
     if (serialOutput) Serial.begin(9600);
 
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, !LED_STATE_ON);
+
+#ifdef PIN_LED2
+    pinMode(PIN_LED2, OUTPUT);
+    digitalWrite(PIN_LED2, !LED_STATE_ON);
+#endif
+
+    pinMode(INTERRUPT_PIN, INPUT);
 #if USE_LOW_POWER
     LowPower.attachInterruptWakeup(INTERRUPT_PIN, onWakeup, RISING);
 #endif
@@ -78,6 +97,13 @@ bool connect()
         return false;
     }
 
+#if USE_LOW_POWER
+    // Disable USB once we're connected to mouse to save power
+    // Don't disable any earlier to make programming easier (when disconnected from mouse)
+    USBDevice.detach();
+    USBDevice.end();
+#endif
+
     return true;
 }
 
@@ -87,10 +113,18 @@ void loop()
     int ret;
 
     if (!mouseConnected) {
+#ifdef PIN_LED2
+        // Use this LED to show connection issue
+        digitalWrite(PIN_LED2, LED_STATE_ON);
+#endif
         mouseConnected = connect();
         if (!mouseConnected) {
             delay(100);
             return;
+        } else {
+#ifdef PIN_LED2
+            digitalWrite(PIN_LED2, !LED_STATE_ON);
+#endif
         }
     }
 
@@ -112,17 +146,18 @@ void loop()
             Serial.print(", Y = ");
             Serial.println(y);
         }
-        // Alternatively, just show LED during motion
-        digitalWrite(LED_BUILTIN, HIGH);
-
-        // Show for long enough to be seen
-        delay(1);
+        // Show LED during motion
+        digitalWrite(LED_BUILTIN, LED_STATE_ON);
     } else {
-        digitalWrite(LED_BUILTIN, LOW);
+        // Delay off so LED can be seen
+        delay(2);
+        digitalWrite(LED_BUILTIN, !LED_STATE_ON);
 #if USE_LOW_POWER
         // Sleep until button interrupt causes wakeup
         if (digitalRead(INTERRUPT_PIN) == 0) {
-            LowPower.sleep();
+            mouse.suspend();
+            LowPower.deepSleep();
+            mouse.resume();
         }
 #else
         // Wait for interrupt pin from moddoMOUSE

@@ -106,6 +106,8 @@ class moddoMOUSE
         moddoMOUSE();
 
         int8_t begin(uint8_t address = MODDOMOUSE_I2C_ADDRESS, TwoWire& wirePort = Wire);
+        int8_t suspend();
+        int8_t resume();
 
         int8_t readProductID(uint8_t *value);
         int8_t readDeviceID(uint16_t *value);
@@ -147,8 +149,6 @@ class moddoMOUSE
 
         uint8_t i2cAddress;
         TwoWire* i2cPort;
-
-        bool mouseConnected;
 };
 
 #endif // MODDOMOUSE_H
