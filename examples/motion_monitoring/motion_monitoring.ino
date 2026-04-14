@@ -33,7 +33,7 @@ bool connect()
     }
 
     uint16_t deviceId;
-    if (mouse.readDeviceID(&deviceId) < 0) {
+    if (mouse.getDeviceID(&deviceId) < 0) {
         Serial.println("Couldn't read device ID: error");
         return false;
     }
@@ -65,7 +65,7 @@ void loop()
     // Read X, Y deltas
     int16_t x;
     int16_t y;
-    ret = mouse.readMotion(&x, &y);
+    ret = mouse.getMotion(&x, &y);
     if (ret < 0) {
         Serial.println("Couldn't read motion: error");
         mouseConnected = false;

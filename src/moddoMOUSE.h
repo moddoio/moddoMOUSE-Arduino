@@ -107,15 +107,15 @@ class moddoMOUSE
 
         int8_t begin(uint8_t address = MODDOMOUSE_I2C_ADDRESS, TwoWire& wirePort = Wire);
 
-        int8_t readProductID(uint8_t *value);
-        int8_t readDeviceID(uint16_t *value);
+        int8_t getProductID(uint8_t *value);
+        int8_t getDeviceID(uint16_t *value);
 
-        int8_t readBatteryStatus(struct batteryStatus *status);
+        int8_t getBatteryStatus(struct batteryStatus *status);
 
-        int8_t readMotion(int16_t *x, int16_t *y);
-        int8_t readMainButtons(bool *left, bool *right, bool *middle, bool *back, bool *forward);
+        int8_t getMotion(int16_t *x, int16_t *y);
+        int8_t getMainButtons(bool *left, bool *right, bool *middle, bool *back, bool *forward);
 
-        int8_t writeButtons(uint32_t button_bits);
+        int8_t setButtons(uint32_t button_bits);
 
         int8_t setBatteryChangeInterrupt(bool enable);
         int8_t setMotionInterrupt(bool enable);
