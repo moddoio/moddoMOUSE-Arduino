@@ -34,7 +34,7 @@ bool connect()
     }
 
     uint16_t deviceId;
-    if (mouse.readDeviceID(&deviceId) < 0) {
+    if (mouse.getDeviceID(&deviceId) < 0) {
         Serial.println("Couldn't read device ID: error");
         return false;
     }
@@ -65,7 +65,7 @@ void loop()
 
     // Read battery info
     struct batteryStatus status;
-    ret = mouse.readBatteryStatus(&status);
+    ret = mouse.getBatteryStatus(&status);
     if (ret < 0) {
         Serial.println("Couldn't read battery status: error");
         mouseConnected = false;

@@ -40,7 +40,7 @@ bool connect()
     }
 
     uint16_t deviceId;
-    if (mouse.readDeviceID(&deviceId) < 0) {
+    if (mouse.getDeviceID(&deviceId) < 0) {
         Serial.println("Couldn't read device ID: error");
         return false;
     }
@@ -76,7 +76,7 @@ void loop()
     if (buttonBits != lastButtonBits) {
         lastButtonBits = buttonBits;
 
-        ret = mouse.writeButtons(buttonBits);
+        ret = mouse.setButtons(buttonBits);
         if (ret < 0) {
             Serial.println("Couldn't write buttons: error");
             mouseConnected = false;
