@@ -78,7 +78,7 @@ bool connect()
     }
 
     uint16_t deviceId;
-    if (mouse.readDeviceID(&deviceId) < 0) {
+    if (mouse.getDeviceID(&deviceId) < 0) {
         if (serialOutput) Serial.println("Couldn't read device ID: error");
         return false;
     }

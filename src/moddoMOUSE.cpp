@@ -60,7 +60,7 @@ int moddoMOUSE::i2cWrite(uint8_t reg, void *buf, uint8_t length)
 }
 
 // Read moddoMOUSE product ID
-int8_t moddoMOUSE::readProductID(uint8_t *value)
+int8_t moddoMOUSE::getProductID(uint8_t *value)
 {
     if (value == NULL) {
         return -EINVAL;
@@ -75,7 +75,7 @@ int8_t moddoMOUSE::readProductID(uint8_t *value)
 }
 
 // Read moddoMOUSE device ID
-int8_t moddoMOUSE::readDeviceID(uint16_t *value)
+int8_t moddoMOUSE::getDeviceID(uint16_t *value)
 {
     if (value == NULL) {
         return -EINVAL;
@@ -90,7 +90,7 @@ int8_t moddoMOUSE::readDeviceID(uint16_t *value)
 }
 
 // Read moddoMOUSE battery capacity and charger status
-int8_t moddoMOUSE::readBatteryStatus(struct batteryStatus *status)
+int8_t moddoMOUSE::getBatteryStatus(struct batteryStatus *status)
 {
     if (status == NULL) {
         return -EINVAL;
@@ -105,7 +105,7 @@ int8_t moddoMOUSE::readBatteryStatus(struct batteryStatus *status)
 }
 
 // Read moddoMOUSE motion
-int8_t moddoMOUSE::readMotion(int16_t *x, int16_t *y)
+int8_t moddoMOUSE::getMotion(int16_t *x, int16_t *y)
 {
     uint16_t motion[2];
 
@@ -124,7 +124,7 @@ int8_t moddoMOUSE::readMotion(int16_t *x, int16_t *y)
     return 0;
 }
 
-int8_t moddoMOUSE::readMainButtons(bool *left, bool *right, bool *middle, bool *back, bool *forward)
+int8_t moddoMOUSE::getMainButtons(bool *left, bool *right, bool *middle, bool *back, bool *forward)
 {
     uint8_t buttons;
 
@@ -158,7 +158,7 @@ int8_t moddoMOUSE::readMainButtons(bool *left, bool *right, bool *middle, bool *
  * Each bit (out of 32) is a different button. Set the bit (1) when button is down, clear it (0) when up.
  *
  */
-int8_t moddoMOUSE::writeButtons(uint32_t button_bits)
+int8_t moddoMOUSE::setButtons(uint32_t button_bits)
 {
     int8_t bytesWritten = i2cWrite(REG_EXP_BOARD_BUTTONS_0, &button_bits, sizeof(button_bits));
     if (bytesWritten != sizeof(button_bits)) {
@@ -549,7 +549,7 @@ int8_t moddoMOUSE::begin(uint8_t address, TwoWire& wirePort)
 
     // Read moddoMOUSE product ID
     uint8_t prodId;
-    int8_t ret = readProductID(&prodId);
+    int8_t ret = getProductID(&prodId);
     if (ret != 0) {
         return -EIO;
     }
