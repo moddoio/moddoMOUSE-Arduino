@@ -11,17 +11,60 @@
 
 #include <moddoMOUSE.h>
 
-#define INTERRUPT_PIN 2
+// Change this to 0 if you don't want low power support (easier when debugging).
+// If you don't use it the Arduino power consumption will be ~200x higher at idle,
+// and will drain the mouse battery.
+#define USE_LOW_POWER_IF_SUPPORTED 1
+
+#if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
+    // Low power library only supported on some Arduino platforms
+    #include <ArduinoLowPower.h>
+    #define USE_LOW_POWER 1
+#else
+    #define USE_LOW_POWER 0
+#endif
+
+#ifndef LED_STATE_ON
+    #ifdef ARDUINO_SEEED_XIAO_M0
+        #define LED_STATE_ON LOW
+    #else
+        #define LED_STATE_ON HIGH
+    #endif
+#endif
+
+
+// Pin mappings
+#define INTERRUPT_PIN 1
 
 moddoMOUSE mouse;
+
+#if USE_LOW_POWER
+void onWakeup()
+{
+    // Nothing to do in here
+}
+#endif
 
 void setup()
 {
     Serial.begin(9600);
 
+    // Using this LED to show when active
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LED_STATE_ON);
+
+    pinMode(INTERRUPT_PIN, INPUT);
+#if USE_LOW_POWER
+    LowPower.attachInterruptWakeup(INTERRUPT_PIN, onWakeup, RISING);
+#endif
+
+    while (!Serial) {
+        // blink LED to indicate waiting
+        digitalWrite(LED_BUILTIN, !LED_STATE_ON);
+        delay(200);
+        digitalWrite(LED_BUILTIN, LED_STATE_ON);
+    }
     Serial.println("setup done");
-    Serial.flush();
-    delay(2000);
 }
 
 bool connect()
@@ -103,8 +146,28 @@ void loop()
     }
     Serial.flush();
 
-    // Ideally, would put the processor to sleep here and use a real interrupt instead of looping
-    while(digitalRead(INTERRUPT_PIN) == 0) {
-        delay(100);
+#if USE_LOW_POWER
+    // Sleep until interrupt from mouse causes wakeup
+    if (digitalRead(INTERRUPT_PIN) == 0) {
+        digitalWrite(LED_BUILTIN, !LED_STATE_ON);
+        mouse.suspend();
+        USBDevice.detach();
+        LowPower.sleep();
+        USBDevice.attach();
+        mouse.resume();
+        digitalWrite(LED_BUILTIN, LED_STATE_ON);
+
+        // It appears the Serial is returned as 1 after the attach command
+        // However it also appears to revert to 0 after 1 sec of inactivity
+        // So we need to wait before the while check
+        delay(1000);
+
+        while (!Serial);
+        Serial.println();
     }
+#else
+    // Wait for interrupt pin from moddoMOUSE
+    while(digitalRead(INTERRUPT_PIN) == 0) {
+    }
+#endif
 }

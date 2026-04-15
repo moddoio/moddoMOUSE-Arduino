@@ -12,7 +12,7 @@
 #include "moddoMOUSE.h"
 #include "moddomouseRegs.h"
 
-moddoMOUSE::moddoMOUSE()
+moddoMOUSE::moddoMOUSE(): i2cPort(NULL)
 {
 }
 
@@ -565,5 +565,25 @@ int8_t moddoMOUSE::begin(uint8_t address, TwoWire& wirePort)
         return -EIO;
     }
 
+    return 0;
+}
+
+int8_t moddoMOUSE::suspend()
+{
+    if (i2cPort == NULL) {
+        return -EINVAL;
+    }
+
+    i2cPort->end();
+    return 0;
+}
+
+int8_t moddoMOUSE::resume()
+{
+    if (i2cPort == NULL) {
+        return -EINVAL;
+    }
+
+    i2cPort->begin();
     return 0;
 }
