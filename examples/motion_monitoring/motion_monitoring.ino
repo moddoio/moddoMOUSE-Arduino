@@ -12,7 +12,7 @@
 #include <moddoMOUSE.h>
 
 // Change this to 0 if you don't want low power support (easier when debugging).
-// But be warned, if you don't use it the Arduino power consumption will be ~250x higher at idle
+// If you don't use it the Arduino power consumption will be ~200x higher at idle,
 // and will drain the mouse battery.
 #define USE_LOW_POWER_IF_SUPPORTED 1
 
@@ -32,11 +32,14 @@
     #endif
 #endif
 
-#define INTERRUPT_PIN 1
-
 // Don't output on serial port in low power mode
 bool serialOutput = !USE_LOW_POWER;
 
+
+// Pin mappings
+#define INTERRUPT_PIN 1
+
+// Set to false to disable motion prints when serial output is enabled
 bool printMotion = true;
 
 moddoMOUSE mouse;
@@ -54,11 +57,6 @@ void setup()
 
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, !LED_STATE_ON);
-
-#ifdef PIN_LED2
-    pinMode(PIN_LED2, OUTPUT);
-    digitalWrite(PIN_LED2, !LED_STATE_ON);
-#endif
 
     pinMode(INTERRUPT_PIN, INPUT);
 #if USE_LOW_POWER
@@ -113,18 +111,10 @@ void loop()
     int ret;
 
     if (!mouseConnected) {
-#ifdef PIN_LED2
-        // Use this LED to show connection issue
-        digitalWrite(PIN_LED2, LED_STATE_ON);
-#endif
         mouseConnected = connect();
         if (!mouseConnected) {
             delay(100);
             return;
-        } else {
-#ifdef PIN_LED2
-            digitalWrite(PIN_LED2, !LED_STATE_ON);
-#endif
         }
     }
 
@@ -140,7 +130,7 @@ void loop()
 
     if (x != 0 || y != 0) {
         if (serialOutput && printMotion) {
-            // These prints slow down the updating of x/y values due to the serial output speed
+            // These prints can slow down the updating of x/y values due to the serial output speed
             Serial.print("X = ");
             Serial.print(x);
             Serial.print(", Y = ");
@@ -153,10 +143,10 @@ void loop()
         delay(2);
         digitalWrite(LED_BUILTIN, !LED_STATE_ON);
 #if USE_LOW_POWER
-        // Sleep until button interrupt causes wakeup
+        // Sleep until interrupt from mouse causes wakeup
         if (digitalRead(INTERRUPT_PIN) == 0) {
             mouse.suspend();
-            LowPower.deepSleep();
+            LowPower.sleep();
             mouse.resume();
         }
 #else
