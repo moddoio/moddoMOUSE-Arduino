@@ -11,26 +11,38 @@
 
 #include <moddoMOUSE.h>
 
-// Change this to 0 if you don't want low power support
+// Change this to 0 if you don't want low power support (easier when debugging).
+// If you don't use it the Arduino power consumption will be ~200x higher at idle,
+// and will drain the mouse battery.
 #define USE_LOW_POWER_IF_SUPPORTED 1
 
 #if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
-// Low power library only supported on some Arduino platforms
-#include <ArduinoLowPower.h>
-#define USE_LOW_POWER 1
+    // Low power library only supported on some Arduino platforms
+    #include <ArduinoLowPower.h>
+    #define USE_LOW_POWER 1
 #else
-#define USE_LOW_POWER 0
+    #define USE_LOW_POWER 0
 #endif
 
-#define DPI_CHANGE_BUTTON_PIN 1
+#ifndef LED_STATE_ON
+    #ifdef ARDUINO_SEEED_XIAO_M0
+        #define LED_STATE_ON LOW
+    #else
+        #define LED_STATE_ON HIGH
+    #endif
+#endif
+
+// Don't output on serial port in low power mode
+bool serialOutput = !USE_LOW_POWER;
+
+
+// Pin mappings. Make sure to use pins that support interrupts if using low power sleep
+#define DPI_CHANGE_BUTTON_PIN 6
 
 #ifndef ARRAY_SIZE
     // helpful macro
     #define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 #endif
-
-// Don't output on serial port in low power mode
-bool serialOutput = !USE_LOW_POWER;
 
 moddoMOUSE mouse;
 
@@ -119,6 +131,13 @@ bool connect()
         }
     }
 
+#if USE_LOW_POWER
+    // Disable USB once we're connected to mouse to save power
+    // Don't disable any earlier to make programming easier (when disconnected from mouse)
+    USBDevice.detach();
+    USBDevice.end();
+#endif
+
     return true;
 }
 
@@ -133,11 +152,6 @@ void loop()
             return;
         }
     }
-
-#if USE_LOW_POWER
-    // Sleep until button interrupt causes wakeup
-    LowPower.sleep();
-#endif
 
     bool pressed = !digitalRead(DPI_CHANGE_BUTTON_PIN);
     if (pressed) {
@@ -165,11 +179,16 @@ void loop()
 
         // Blink currently selected index + 1
         for (uint8_t i = 0; i < currentDpiIndex + 1; i++) {
-            digitalWrite(LED_BUILTIN, HIGH);
+            digitalWrite(LED_BUILTIN, LED_STATE_ON);
             delay(250);
-            digitalWrite(LED_BUILTIN, LOW);
+            digitalWrite(LED_BUILTIN, !LED_STATE_ON);
             delay(250);
         }
     }
-
+#if USE_LOW_POWER
+    // Sleep until button interrupt causes wakeup
+    mouse.suspend();
+    LowPower.sleep();
+    mouse.resume();
+#endif
 }
