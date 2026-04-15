@@ -11,44 +11,82 @@
 
 #include <moddoMOUSE.h>
 
-#define V_WHEEL_UP_BUTTON_PIN 3
-#define V_WHEEL_DOWN_BUTTON_PIN 4
-#define H_WHEEL_UP_BUTTON_PIN 5
-#define H_WHEEL_DOWN_BUTTON_PIN 6
+// Change this to 0 if you don't want low power support (easier when debugging).
+// If you don't use it the Arduino power consumption will be ~200x higher at idle,
+// and will drain the mouse battery.
+#define USE_LOW_POWER_IF_SUPPORTED 1
+
+#if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
+    // Low power library only supported on some Arduino platforms
+    #include <ArduinoLowPower.h>
+    #define USE_LOW_POWER 1
+#else
+    #define USE_LOW_POWER 0
+#endif
+
+// Don't output on serial port in low power mode
+bool serialOutput = !USE_LOW_POWER;
+
+
+// Pin mappings. Make sure to use pins that support interrupts if using low power sleep
+#define V_WHEEL_UP_BUTTON_PIN 6
+#define V_WHEEL_DOWN_BUTTON_PIN 7
+#define H_WHEEL_UP_BUTTON_PIN 8
+#define H_WHEEL_DOWN_BUTTON_PIN 9
 
 moddoMOUSE mouse;
 
+#if USE_LOW_POWER
+void onWakeup()
+{
+    // Nothing to do in here
+}
+#endif
+
 void setup()
 {
-    Serial.begin(9600);
+    if (serialOutput) Serial.begin(9600);
 
-    pinMode(V_WHEEL_UP_BUTTON_PIN, INPUT_PULLUP);
-    pinMode(V_WHEEL_DOWN_BUTTON_PIN, INPUT_PULLUP);
-    pinMode(H_WHEEL_UP_BUTTON_PIN, INPUT_PULLUP);
-    pinMode(H_WHEEL_DOWN_BUTTON_PIN, INPUT_PULLUP);
+    for (int pin = V_WHEEL_UP_BUTTON_PIN; pin <= H_WHEEL_DOWN_BUTTON_PIN; pin++) {
+        pinMode(pin, INPUT_PULLUP);
+#if USE_LOW_POWER
+        LowPower.attachInterruptWakeup(pin, onWakeup, FALLING);
+#endif
+    }
 
-    Serial.println("setup done");
-    Serial.flush();
-    delay(2000);
+    if (serialOutput) {
+        Serial.println("setup done");
+        Serial.flush();
+        delay(2000);
+    }
 }
 
 bool connect()
 {
     if (mouse.begin() == 0) {
-        Serial.println("Connected to moddoMOUSE");
+        if (serialOutput) Serial.println("Connected to moddoMOUSE");
     } else {
-        Serial.println("Couldn't connect to moddoMOUSE");
+        if (serialOutput) Serial.println("Couldn't connect to moddoMOUSE");
         return false;
     }
 
     uint16_t deviceId;
     if (mouse.getDeviceID(&deviceId) < 0) {
-        Serial.println("Couldn't read device ID: error");
+        if (serialOutput) Serial.println("Couldn't read device ID: error");
         return false;
     }
 
-    Serial.print("Device ID = ");
-    Serial.println(deviceId, HEX);
+    if (serialOutput) {
+        Serial.print("Device ID = ");
+        Serial.println(deviceId, HEX);
+    }
+
+#if USE_LOW_POWER
+    // Disable USB once we're connected to mouse to save power
+    // Don't disable any earlier to make programming easier (when disconnected from mouse)
+    USBDevice.detach();
+    USBDevice.end();
+#endif
 
     return true;
 }
@@ -98,26 +136,35 @@ void loop()
         }
 
         if (vDirection != 0) {
-            Serial.print("Changing V wheel by ");
-            Serial.println(vDirection);
+            if (serialOutput) {
+                Serial.print("Changing V wheel by ");
+                Serial.println(vDirection);
+            }
 
             if (mouse.setVerticalWheel(vDirection) < 0) {
-                Serial.println("Couldn't set V wheel: error");
+                if (serialOutput) Serial.println("Couldn't set V wheel: error");
                 mouseConnected = false;
                 return;
             }
         }
 
         if (hDirection != 0) {
-            Serial.print("Changing H wheel by ");
-            Serial.println(hDirection);
+            if (serialOutput) {
+                Serial.print("Changing H wheel by ");
+                Serial.println(hDirection);
+            }
 
             if (mouse.setHorizontalWheel(hDirection) < 0) {
-                Serial.println("Couldn't set V wheel: error");
+                if (serialOutput) Serial.println("Couldn't set V wheel: error");
                 mouseConnected = false;
                 return;
             }
         }
     }
-
+#if USE_LOW_POWER
+    // Sleep until button interrupt causes wakeup
+    mouse.suspend();
+    LowPower.sleep();
+    mouse.resume();
+#endif
 }
