@@ -90,6 +90,11 @@ bool connect()
         return false;
     }
 
+    if (mouse.setStatusInterrupt(true) < 0) {
+        Serial.println("Couldn't enable interrupt for status changes");
+        return false;
+    }
+
     return true;
 }
 
@@ -106,42 +111,61 @@ void loop()
         }
     }
 
+    // Read mouse status
+    struct mouseStatus status;
+    ret = mouse.getStatus(&status);
+    if (ret < 0) {
+        Serial.println("Couldn't read mouse status: error");
+        mouseConnected = false;
+        return;
+    }
+    switch((enum mouseMode)status.mode) {
+        case MODE_RUNNING:
+            Serial.println("Running");
+            break;
+        case MODE_IDLE:
+            Serial.println("Idle");
+            break;
+        default:
+            break;
+    }
+
     // Read battery info
-    struct batteryStatus status;
-    ret = mouse.getBatteryStatus(&status);
+    struct batteryStatus batStatus;
+    ret = mouse.getBatteryStatus(&batStatus);
     if (ret < 0) {
         Serial.println("Couldn't read battery status: error");
         mouseConnected = false;
         return;
     }
 
-    if (!status.batteryPresent) {
+    if (!batStatus.batteryPresent) {
         Serial.println("No battery");
-    } else if (status.batteryCapacity == MODDOMOUSE_BAT_CAPACITY_UNKNOWN) {
+    } else if (batStatus.batteryCapacity == MODDOMOUSE_BAT_CAPACITY_UNKNOWN) {
         Serial.println("Battery capacity unknown");
     } else {
         // This is if USB is connected
-        if (status.externalSupply) {
+        if (batStatus.externalSupply) {
             Serial.println("USB connected");
         }
 
         Serial.print("Battery = ");
-        Serial.print(status.batteryCapacity);
+        Serial.print(batStatus.batteryCapacity);
         Serial.print("%, (");
-        Serial.print(status.batteryVoltage);
+        Serial.print(batStatus.batteryVoltage);
         Serial.println("mV)");
 
-        if (status.batteryCharging) {
+        if (batStatus.batteryCharging) {
             Serial.println("Battery charging");
-        } else if (status.externalSupply && status.batteryCapacity >= 90) {
+        } else if (batStatus.externalSupply && batStatus.batteryCapacity >= 90) {
             Serial.println("Battery full");
         } else {
             Serial.println("Battery discharging");
         }
 
-        if (status.health != CHARGER_HEALTH_GOOD) {
+        if (batStatus.health != CHARGER_HEALTH_GOOD) {
             Serial.print("Charging error: ");
-            Serial.println(status.health);
+            Serial.println(batStatus.health);
         }
     }
     Serial.flush();

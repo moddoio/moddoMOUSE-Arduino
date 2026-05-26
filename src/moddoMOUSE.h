@@ -25,7 +25,7 @@
  *
  * These conditions determine the ability to, or the rate of, charge
  */
-enum charger_health: uint8_t {
+enum chargerHealth: uint8_t {
     /** Charger health condition is unknown */
     CHARGER_HEALTH_UNKNOWN = 0,
     /** Charger health condition is good */
@@ -59,6 +59,17 @@ enum charger_health: uint8_t {
 
 #define MODDOMOUSE_BAT_CAPACITY_UNKNOWN 255
 
+enum mouseMode: uint8_t {
+    MODE_RUNNING = 0,
+    MODE_IDLE
+};
+
+struct __attribute__((packed)) mouseStatus
+{
+    // Will be one of the values in `enum mouseMode`
+    uint8_t mode : 2;
+};
+
 struct __attribute__((packed)) batteryStatus
 {
     // Battery voltage in millivolts
@@ -73,7 +84,7 @@ struct __attribute__((packed)) batteryStatus
     // true if battery is charging, false if discharging
     uint8_t batteryCharging : 1;
 
-    // Will be one of the values in `enum charger_health`
+    // Will be one of the values in `enum chargerHealth`
     uint8_t health : 5;
 
     // true if USB supply is connected
@@ -111,7 +122,7 @@ class moddoMOUSE
 
         int8_t getProductID(uint8_t *value);
         int8_t getDeviceID(uint16_t *value);
-
+        int8_t getStatus(struct mouseStatus *status);
         int8_t getBatteryStatus(struct batteryStatus *status);
 
         int8_t getMotion(int16_t *x, int16_t *y);
@@ -122,6 +133,7 @@ class moddoMOUSE
         int8_t setBatteryChangeInterrupt(bool enable);
         int8_t setMotionInterrupt(bool enable);
         int8_t setMainButtonsInterrupt(bool enable);
+        int8_t setStatusInterrupt(bool enable);
 
         int8_t disableAllInterrupts();
 

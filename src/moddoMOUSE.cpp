@@ -89,6 +89,21 @@ int8_t moddoMOUSE::getDeviceID(uint16_t *value)
     return 0;
 }
 
+// Read moddoMOUSE status
+int8_t moddoMOUSE::getStatus(struct mouseStatus *status)
+{
+    if (status == NULL) {
+        return -EINVAL;
+    }
+
+    int8_t bytesRead = i2cRead(REG_STATUS, status, sizeof(*status));
+    if (bytesRead != sizeof(*status)) {
+        return -EIO;
+    }
+
+    return 0;
+}
+
 // Read moddoMOUSE battery capacity and charger status
 int8_t moddoMOUSE::getBatteryStatus(struct batteryStatus *status)
 {
@@ -178,9 +193,9 @@ int8_t moddoMOUSE::setBatteryChangeInterrupt(bool enable)
     }
 
     if (enable) {
-        value |= REG_REG_INT_EN_BATTERY_CHANGE;
+        value |= REG_INT_EN_BATTERY_CHANGE;
     } else {
-        value &= ~REG_REG_INT_EN_BATTERY_CHANGE;
+        value &= ~REG_INT_EN_BATTERY_CHANGE;
     }
 
     int8_t bytesWritten = i2cWrite(REG_INT_EN, &value, sizeof(value));
@@ -201,9 +216,9 @@ int8_t moddoMOUSE::setMotionInterrupt(bool enable)
     }
 
     if (enable) {
-        value |= REG_REG_INT_EN_MOTION;
+        value |= REG_INT_EN_MOTION;
     } else {
-        value &= ~REG_REG_INT_EN_MOTION;
+        value &= ~REG_INT_EN_MOTION;
     }
 
     int8_t bytesWritten = i2cWrite(REG_INT_EN, &value, sizeof(value));
@@ -224,9 +239,32 @@ int8_t moddoMOUSE::setMainButtonsInterrupt(bool enable)
     }
 
     if (enable) {
-        value |= REG_REG_INT_EN_MAIN_BUTTONS;
+        value |= REG_INT_EN_MAIN_BUTTONS;
     } else {
-        value &= ~REG_REG_INT_EN_MAIN_BUTTONS;
+        value &= ~REG_INT_EN_MAIN_BUTTONS;
+    }
+
+    int8_t bytesWritten = i2cWrite(REG_INT_EN, &value, sizeof(value));
+    if (bytesWritten != sizeof(value)) {
+        return -EIO;
+    }
+
+    return 0;
+}
+
+int8_t moddoMOUSE::setStatusInterrupt(bool enable)
+{
+    uint8_t value;
+
+    int8_t bytesRead = i2cRead(REG_INT_EN, &value, sizeof(value));
+    if (bytesRead != sizeof(value)) {
+        return -EIO;
+    }
+
+    if (enable) {
+        value |= REG_INT_EN_STATUS;
+    } else {
+        value &= ~REG_INT_EN_STATUS;
     }
 
     int8_t bytesWritten = i2cWrite(REG_INT_EN, &value, sizeof(value));

@@ -95,10 +95,11 @@ enum register_index {
 #define REG_MAIN_BUTTONS_FORWARD_CLICK BIT(4)
 
 // REG_INT_EN bits
-#define REG_REG_INT_EN_WHEEL          BIT(0)
-#define REG_REG_INT_EN_MOTION         BIT(1)
-#define REG_REG_INT_EN_MAIN_BUTTONS   BIT(2)
-#define REG_REG_INT_EN_FAULTS         BIT(3)
-#define REG_REG_INT_EN_BATTERY_CHANGE BIT(4)
+#define REG_INT_EN_WHEEL          BIT(0)
+#define REG_INT_EN_MOTION         BIT(1)
+#define REG_INT_EN_MAIN_BUTTONS   BIT(2)
+#define REG_INT_EN_FAULTS         BIT(3)
+#define REG_INT_EN_BATTERY_CHANGE BIT(4)
+#define REG_INT_EN_STATUS         BIT(5)
 
 #endif
