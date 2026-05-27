@@ -148,6 +148,8 @@ class moddoMOUSE
         int8_t getLiftDistance(enum liftDistanceOptions *liftDistance);
         int8_t setAngleTune(int8_t angle);
         int8_t getAngleTune(int8_t *angle);
+        int8_t setDeepSleepTimeout(uint8_t minutes);
+        int8_t getDeepSleepTimeout(uint8_t *minutes);
 
         // Scroll wheels
         int8_t setVerticalWheel(int8_t delta);

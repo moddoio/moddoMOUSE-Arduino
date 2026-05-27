@@ -71,6 +71,8 @@ enum register_index {
     REG_EXP_BOARD_BUTTONS_2,
     REG_EXP_BOARD_BUTTONS_3,
 
+    REG_DEEP_SLEEP_TIMEOUT,
+
     NUM_REGISTERS,
 };
 

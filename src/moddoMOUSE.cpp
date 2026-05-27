@@ -520,6 +520,34 @@ int8_t moddoMOUSE::getAngleTune(int8_t *angle)
     return 0;
 }
 
+int8_t moddoMOUSE::setDeepSleepTimeout(uint8_t minutes)
+{
+    int8_t bytesWritten = i2cWrite(REG_DEEP_SLEEP_TIMEOUT, &minutes, sizeof(minutes));
+    if (bytesWritten != sizeof(minutes)) {
+        return -EIO;
+    }
+
+    return 0;
+}
+
+int8_t moddoMOUSE::getDeepSleepTimeout(uint8_t *minutes)
+{
+    if (minutes == NULL) {
+        return -EINVAL;
+    }
+
+    uint8_t value;
+
+    int8_t bytesRead = i2cRead(REG_DEEP_SLEEP_TIMEOUT, &value, sizeof(value));
+    if (bytesRead != sizeof(value)) {
+        return -EIO;
+    }
+
+    *minutes = value;
+
+    return 0;
+}
+
 
 int8_t moddoMOUSE::setVerticalWheel(int8_t delta)
 {
