@@ -143,7 +143,7 @@ void loop()
     bool change = buttonChange;
     buttonChange = false;
     interrupts();
-s
+
     if (!change) {
         // Sleep until button interrupt causes wakeup.
         // NOTE: There might be extra latency to your button handling caused by coming out of sleep,
