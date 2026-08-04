@@ -89,6 +89,21 @@ int8_t moddoMOUSE::getDeviceID(uint16_t *value)
     return 0;
 }
 
+// Set moddoMOUSE status
+int8_t moddoMOUSE::setStatus(struct mouseStatus *status)
+{
+    if (status == NULL) {
+        return -EINVAL;
+    }
+
+    int8_t bytesWritten = i2cWrite(REG_STATUS, status, sizeof(*status));
+    if (bytesWritten != sizeof(*status)) {
+        return -EIO;
+    }
+
+    return 0;
+}
+
 // Read moddoMOUSE status
 int8_t moddoMOUSE::getStatus(struct mouseStatus *status)
 {
