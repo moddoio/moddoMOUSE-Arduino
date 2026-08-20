@@ -18,7 +18,11 @@
 
 #if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
     // Low power library only supported on some Arduino platforms
-    #include <ArduinoLowPower.h>
+    #if defined(ARDUINO_MODDO_PINCH)
+        #include <PinchLowPower.h>
+    #else
+        #include <ArduinoLowPower.h>
+    #endif
     #define USE_LOW_POWER 1
 #else
     #define USE_LOW_POWER 0
@@ -37,8 +41,8 @@ bool serialOutput = !USE_LOW_POWER;
 
 
 // Pin mappings. Make sure to use pins that support interrupts if using low power sleep
-#define ANGLE_INCREASE_BUTTON_PIN 6
-#define ANGLE_DECREASE_BUTTON_PIN 7
+#define ANGLE_INCREASE_BUTTON_PIN 7
+#define ANGLE_DECREASE_BUTTON_PIN 8
 
 #define ANGLE_STEP 5 // increase or decrease amount of degrees per button press
 
@@ -64,6 +68,9 @@ void decInt()
 void setup()
 {
     if (serialOutput) Serial.begin(9600);
+
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, !LED_STATE_ON);
 
     pinMode(ANGLE_INCREASE_BUTTON_PIN, INPUT_PULLUP);
     pinMode(ANGLE_DECREASE_BUTTON_PIN, INPUT_PULLUP);

@@ -18,7 +18,11 @@
 
 #if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
     // Low power library only supported on some Arduino platforms
-    #include <ArduinoLowPower.h>
+    #if defined(ARDUINO_MODDO_PINCH)
+        #include <PinchLowPower.h>
+    #else
+        #include <ArduinoLowPower.h>
+    #endif
     #define USE_LOW_POWER 1
 #else
     #define USE_LOW_POWER 0
@@ -37,7 +41,7 @@ bool serialOutput = !USE_LOW_POWER;
 
 
 // Pin mappings. Make sure to use pins that support interrupts if using low power sleep
-#define DPI_CHANGE_BUTTON_PIN 6
+#define DPI_CHANGE_BUTTON_PIN 7
 
 #ifndef ARRAY_SIZE
     // helpful macro
@@ -67,6 +71,9 @@ void onWakeup()
 void setup()
 {
     if (serialOutput) Serial.begin(9600);
+
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, !LED_STATE_ON);
 
     pinMode(DPI_CHANGE_BUTTON_PIN, INPUT_PULLUP);
 #if USE_LOW_POWER
@@ -131,7 +138,7 @@ bool connect()
         }
     }
 
-#if USE_LOW_POWER
+#if USE_LOW_POWER && !defined(ARDUINO_MODDO_PINCH)
     // Disable USB once we're connected to mouse to save power
     // Don't disable any earlier to make programming easier (when disconnected from mouse)
     USBDevice.detach();

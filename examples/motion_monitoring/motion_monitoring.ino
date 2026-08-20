@@ -18,7 +18,11 @@
 
 #if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
     // Low power library only supported on some Arduino platforms
-    #include <ArduinoLowPower.h>
+    #if defined(ARDUINO_MODDO_PINCH)
+        #include <PinchLowPower.h>
+    #else
+        #include <ArduinoLowPower.h>
+    #endif
     #define USE_LOW_POWER 1
 #else
     #define USE_LOW_POWER 0
@@ -37,7 +41,7 @@ bool serialOutput = !USE_LOW_POWER;
 
 
 // Pin mappings
-#define INTERRUPT_PIN 1
+#define INTERRUPT_PIN 4
 
 // Set to false to disable motion prints when serial output is enabled
 bool printMotion = true;

@@ -18,7 +18,11 @@
 
 #if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
     // Low power library only supported on some Arduino platforms
-    #include <ArduinoLowPower.h>
+    #if defined(ARDUINO_MODDO_PINCH)
+        #include <PinchLowPower.h>
+    #else
+        #include <ArduinoLowPower.h>
+    #endif
     #define USE_LOW_POWER 1
 #else
     #define USE_LOW_POWER 0
@@ -38,13 +42,13 @@
 // Pin mappings
 
 // interrupt from moddoMOUSE
-#define INTERRUPT_PIN 1
+#define INTERRUPT_PIN 4
 
 // pin attached to button to enter deep sleep early
-#define DEEP_SLEEP_PIN 6
+#define DEEP_SLEEP_PIN 7
 
 // pin attached to button to enter power off
-#define POWER_OFF_PIN 7
+#define POWER_OFF_PIN 8
 
 moddoMOUSE mouse;
 
@@ -73,10 +77,11 @@ void setup()
 #endif
 
     while (!Serial) {
-        // blink LED to indicate waiting
+        // blink LED to indicate waiting for serial monitor to connect
         digitalWrite(LED_BUILTIN, !LED_STATE_ON);
         delay(200);
         digitalWrite(LED_BUILTIN, LED_STATE_ON);
+        delay(200);
     }
     Serial.println();
     Serial.println("setup done");
@@ -138,6 +143,7 @@ void loop()
     int ret;
 
     if (!mouseConnected) {
+        Serial.println("Connecting to mouse...");
         mouseConnected = connect();
         if (!mouseConnected) {
             delay(100);
@@ -186,8 +192,11 @@ void loop()
             return;
         }
 
-        if (status.mode != modeToEnter) {
-            Serial.println("Mouse still active. Mode change will be delayed until conditions are met");
+        if (modeToEnter == MODE_DEEP_SLEEP && status.mode == MODE_RUNNING) {
+            Serial.println("Deep sleep delayed until mouse is Idle first");
+        } else if (status.mode != modeToEnter) {
+            Serial.println("Mouse still active");
+            Serial.println("Mode change will be delayed until conditions are met");
             // For deep sleep, mouse needs to be idle first.
             // For power off, mouse needs to be disconnected from USB first.
         }
@@ -200,6 +209,7 @@ void loop()
     // Sleep until interrupt from mouse causes wakeup
     if (digitalRead(INTERRUPT_PIN) == 0) {
         digitalWrite(LED_BUILTIN, !LED_STATE_ON);
+
         mouse.suspend();
         USBDevice.detach();
         LowPower.sleep();
@@ -217,7 +227,15 @@ void loop()
     }
 #else
     // Wait for interrupt pin from moddoMOUSE or button
-    while(digitalRead(INTERRUPT_PIN) == 0 && digitalRead(DEEP_SLEEP_PIN) == 1) {
-    }
+    bool intPinActive;
+    bool deepSleepButtonPressed;
+    bool powerOffButtonPressed;
+    do {
+        intPinActive = (digitalRead(INTERRUPT_PIN) == 1);
+        deepSleepButtonPressed = (digitalRead(DEEP_SLEEP_PIN) == 0);
+        powerOffButtonPressed = (digitalRead(POWER_OFF_PIN) == 0);
+    } while(!intPinActive && !deepSleepButtonPressed && !powerOffButtonPressed);
+
+    delay(200);
 #endif
 }

@@ -11,11 +11,19 @@
 
 #include <moddoMOUSE.h>
 
-#define POLLLING_RATE_BUTTON_PIN 3
-#define LIFT_DISTANCE_BUTTON_PIN 4
-#define INVERT_X_BUTTON_PIN 5
-#define INVERT_Y_BUTTON_PIN 6
-#define SWAP_XY_BUTTON_PIN 7
+#ifndef LED_STATE_ON
+    #ifdef ARDUINO_SEEED_XIAO_M0
+        #define LED_STATE_ON LOW
+    #else
+        #define LED_STATE_ON HIGH
+    #endif
+#endif
+
+#define POLLLING_RATE_BUTTON_PIN 6
+#define LIFT_DISTANCE_BUTTON_PIN 7
+#define INVERT_X_BUTTON_PIN 8
+#define INVERT_Y_BUTTON_PIN 9
+#define SWAP_XY_BUTTON_PIN 10
 
 #ifndef ARRAY_SIZE
     // helpful macro
@@ -33,6 +41,9 @@ bool currentSwapXY;
 void setup()
 {
     Serial.begin(9600);
+
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, !LED_STATE_ON);
 
     for(uint8_t pin = POLLLING_RATE_BUTTON_PIN; pin <= SWAP_XY_BUTTON_PIN; pin++) {
         pinMode(pin, INPUT_PULLUP);
@@ -204,9 +215,9 @@ void loop()
             }
 
             // Blink once
-            digitalWrite(LED_BUILTIN, HIGH);
+            digitalWrite(LED_BUILTIN, LED_STATE_ON);
             delay(250);
-            digitalWrite(LED_BUILTIN, LOW);
+            digitalWrite(LED_BUILTIN, !LED_STATE_ON);
         }
     }
 }

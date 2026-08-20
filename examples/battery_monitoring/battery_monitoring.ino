@@ -18,7 +18,11 @@
 
 #if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
     // Low power library only supported on some Arduino platforms
-    #include <ArduinoLowPower.h>
+    #if defined(ARDUINO_MODDO_PINCH)
+        #include <PinchLowPower.h>
+    #else
+        #include <ArduinoLowPower.h>
+    #endif
     #define USE_LOW_POWER 1
 #else
     #define USE_LOW_POWER 0
@@ -34,7 +38,7 @@
 
 
 // Pin mappings
-#define INTERRUPT_PIN 1
+#define INTERRUPT_PIN 4
 
 moddoMOUSE mouse;
 
@@ -59,10 +63,11 @@ void setup()
 #endif
 
     while (!Serial) {
-        // blink LED to indicate waiting
+        // blink LED to indicate waiting for serial monitor to connect
         digitalWrite(LED_BUILTIN, !LED_STATE_ON);
         delay(200);
         digitalWrite(LED_BUILTIN, LED_STATE_ON);
+        delay(200);
     }
     Serial.println("setup done");
 }
