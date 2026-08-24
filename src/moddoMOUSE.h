@@ -61,7 +61,9 @@ enum chargerHealth: uint8_t {
 
 enum mouseMode: uint8_t {
     MODE_RUNNING = 0,
-    MODE_IDLE
+    MODE_IDLE,
+    MODE_DEEP_SLEEP,
+    MODE_POWER_OFF,
 };
 
 struct __attribute__((packed)) mouseStatus
@@ -122,6 +124,7 @@ class moddoMOUSE
 
         int8_t getProductID(uint8_t *value);
         int8_t getDeviceID(uint16_t *value);
+        int8_t setStatus(struct mouseStatus *status);
         int8_t getStatus(struct mouseStatus *status);
         int8_t getBatteryStatus(struct batteryStatus *status);
 

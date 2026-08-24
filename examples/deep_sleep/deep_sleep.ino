@@ -36,9 +36,19 @@
     #endif
 #endif
 
+// configure deep sleep setting on mouse. set to 0 to disable deep sleep timeout
+#define DEEP_SLEEP_TIMEOUT_MINUTES 10
 
 // Pin mappings
+
+// interrupt from moddoMOUSE
 #define INTERRUPT_PIN 4
+
+// pin attached to button to enter deep sleep early
+#define DEEP_SLEEP_PIN 7
+
+// pin attached to button to enter power off
+#define POWER_OFF_PIN 8
 
 moddoMOUSE mouse;
 
@@ -58,8 +68,12 @@ void setup()
     digitalWrite(LED_BUILTIN, LED_STATE_ON);
 
     pinMode(INTERRUPT_PIN, INPUT);
+    pinMode(DEEP_SLEEP_PIN, INPUT_PULLUP);
+    pinMode(POWER_OFF_PIN, INPUT_PULLUP);
 #if USE_LOW_POWER
     LowPower.attachInterruptWakeup(INTERRUPT_PIN, onWakeup, RISING);
+    LowPower.attachInterruptWakeup(DEEP_SLEEP_PIN, onWakeup, FALLING);
+    LowPower.attachInterruptWakeup(POWER_OFF_PIN, onWakeup, FALLING);
 #endif
 
     while (!Serial) {
@@ -69,6 +83,7 @@ void setup()
         digitalWrite(LED_BUILTIN, LED_STATE_ON);
         delay(200);
     }
+    Serial.println();
     Serial.println("setup done");
 }
 
@@ -90,17 +105,36 @@ bool connect()
     Serial.print("Device ID = ");
     Serial.println(deviceId, HEX);
 
-    if (mouse.setBatteryChangeInterrupt(true) < 0) {
-        Serial.println("Couldn't enable interrupt for battery changes");
-        return false;
-    }
-
     if (mouse.setStatusInterrupt(true) < 0) {
         Serial.println("Couldn't enable interrupt for status changes");
         return false;
     }
 
+    if (mouse.setDeepSleepTimeout(DEEP_SLEEP_TIMEOUT_MINUTES) < 0) {
+        Serial.println("Couldn't set deep sleep timeout");
+        return false;
+    }
+
     return true;
+}
+
+void print_mode(enum mouseMode mode) {
+    switch(mode) {
+        case MODE_RUNNING:
+            Serial.println("mode = Running");
+            break;
+        case MODE_IDLE:
+            Serial.println("mode = Idle");
+            break;
+        case MODE_DEEP_SLEEP:
+            Serial.println("mode = Deep Sleep");
+            break;
+        case MODE_POWER_OFF:
+            Serial.println("mode = Power Off");
+            break;
+        default:
+            break;
+    }
 }
 
 void loop()
@@ -109,6 +143,7 @@ void loop()
     int ret;
 
     if (!mouseConnected) {
+        Serial.println("Connecting to mouse...");
         mouseConnected = connect();
         if (!mouseConnected) {
             delay(100);
@@ -124,67 +159,57 @@ void loop()
         mouseConnected = false;
         return;
     }
-    switch((enum mouseMode)status.mode) {
-        case MODE_RUNNING:
-            Serial.println("Running");
-            break;
-        case MODE_IDLE:
-            Serial.println("Idle");
-            break;
-        case MODE_DEEP_SLEEP:
-            Serial.println("Deep Sleep");
-            break;
-        case MODE_POWER_OFF:
-            Serial.println("Power Off");
-            break;
-        default:
-            break;
+    print_mode((enum mouseMode)status.mode);
+
+    enum mouseMode modeToEnter = MODE_RUNNING;
+
+    if (digitalRead(DEEP_SLEEP_PIN) == 0) {
+        Serial.println("Deep sleep button pressed");
+        modeToEnter = MODE_DEEP_SLEEP;
+    } else if (digitalRead(POWER_OFF_PIN) == 0) {
+        Serial.println("Power off button pressed");
+        modeToEnter = MODE_POWER_OFF;
     }
 
-    // Read battery info
-    struct batteryStatus batStatus;
-    ret = mouse.getBatteryStatus(&batStatus);
-    if (ret < 0) {
-        Serial.println("Couldn't read battery status: error");
-        mouseConnected = false;
-        return;
+    if (modeToEnter != MODE_RUNNING) {
+        // enter mode
+        status.mode = modeToEnter;
+        ret = mouse.setStatus(&status);
+        if (ret < 0) {
+            Serial.println("Couldn't set mouse status: error");
+            mouseConnected = false;
+            return;
+        }
+
+        // let the mouse process the request
+        delay(1);
+
+        // check that the change took effect
+        ret = mouse.getStatus(&status);
+        if (ret < 0) {
+            Serial.println("Couldn't read mouse status: error");
+            mouseConnected = false;
+            return;
+        }
+
+        if (modeToEnter == MODE_DEEP_SLEEP && status.mode == MODE_RUNNING) {
+            Serial.println("Deep sleep delayed until mouse is Idle first");
+        } else if (status.mode != modeToEnter) {
+            Serial.println("Mouse still active");
+            Serial.println("Mode change will be delayed until conditions are met");
+            // For deep sleep, mouse needs to be idle first.
+            // For power off, mouse needs to be disconnected from USB first.
+        }
+        print_mode((enum mouseMode)status.mode);
     }
 
-    if (!batStatus.batteryPresent) {
-        Serial.println("No battery");
-    } else if (batStatus.batteryCapacity == MODDOMOUSE_BAT_CAPACITY_UNKNOWN) {
-        Serial.println("Battery capacity unknown");
-    } else {
-        // This is if USB is connected
-        if (batStatus.externalSupply) {
-            Serial.println("USB connected");
-        }
-
-        Serial.print("Battery = ");
-        Serial.print(batStatus.batteryCapacity);
-        Serial.print("%, (");
-        Serial.print(batStatus.batteryVoltage);
-        Serial.println("mV)");
-
-        if (batStatus.batteryCharging) {
-            Serial.println("Battery charging");
-        } else if (batStatus.externalSupply && batStatus.batteryCapacity >= 90) {
-            Serial.println("Battery full");
-        } else {
-            Serial.println("Battery discharging");
-        }
-
-        if (batStatus.health != CHARGER_HEALTH_GOOD) {
-            Serial.print("Charging error: ");
-            Serial.println(batStatus.health);
-        }
-    }
     Serial.flush();
 
 #if USE_LOW_POWER
     // Sleep until interrupt from mouse causes wakeup
     if (digitalRead(INTERRUPT_PIN) == 0) {
         digitalWrite(LED_BUILTIN, !LED_STATE_ON);
+
         mouse.suspend();
         USBDevice.detach();
         LowPower.sleep();
@@ -201,8 +226,16 @@ void loop()
         Serial.println();
     }
 #else
-    // Wait for interrupt pin from moddoMOUSE
-    while(digitalRead(INTERRUPT_PIN) == 0) {
-    }
+    // Wait for interrupt pin from moddoMOUSE or button
+    bool intPinActive;
+    bool deepSleepButtonPressed;
+    bool powerOffButtonPressed;
+    do {
+        intPinActive = (digitalRead(INTERRUPT_PIN) == 1);
+        deepSleepButtonPressed = (digitalRead(DEEP_SLEEP_PIN) == 0);
+        powerOffButtonPressed = (digitalRead(POWER_OFF_PIN) == 0);
+    } while(!intPinActive && !deepSleepButtonPressed && !powerOffButtonPressed);
+
+    delay(200);
 #endif
 }

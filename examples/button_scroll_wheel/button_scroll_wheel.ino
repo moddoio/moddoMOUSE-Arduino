@@ -18,7 +18,11 @@
 
 #if USE_LOW_POWER_IF_SUPPORTED && defined(ARDUINO_ARCH_SAMD)
     // Low power library only supported on some Arduino platforms
-    #include <ArduinoLowPower.h>
+    #if defined(ARDUINO_MODDO_PINCH)
+        #include <PinchLowPower.h>
+    #else
+        #include <ArduinoLowPower.h>
+    #endif
     #define USE_LOW_POWER 1
 #else
     #define USE_LOW_POWER 0
@@ -29,10 +33,10 @@ bool serialOutput = !USE_LOW_POWER;
 
 
 // Pin mappings. Make sure to use pins that support interrupts if using low power sleep
-#define V_WHEEL_UP_BUTTON_PIN 6
-#define V_WHEEL_DOWN_BUTTON_PIN 7
-#define H_WHEEL_UP_BUTTON_PIN 8
-#define H_WHEEL_DOWN_BUTTON_PIN 9
+#define V_WHEEL_UP_BUTTON_PIN 7
+#define V_WHEEL_DOWN_BUTTON_PIN 8
+#define H_WHEEL_UP_BUTTON_PIN 9
+#define H_WHEEL_DOWN_BUTTON_PIN 10
 
 moddoMOUSE mouse;
 
