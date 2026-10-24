@@ -632,7 +632,7 @@ int8_t moddoMOUSE::setGamepadButtons(uint16_t button_bits)
 
 int8_t moddoMOUSE::setGamepadJoystick(int8_t joystickIndex, int8_t x, int8_t y)
 {
-    if (joystickIndex > NUM_JOYSTICKS_SUPPORTED) {
+    if (joystickIndex < 0 || joystickIndex >= NUM_JOYSTICKS_SUPPORTED) {
         return -EINVAL;
     }
 
@@ -649,7 +649,7 @@ int8_t moddoMOUSE::setGamepadJoystick(int8_t joystickIndex, int8_t x, int8_t y)
 
 int8_t moddoMOUSE::getGamepadJoystick(int8_t joystickIndex, int8_t *x, int8_t *y)
 {
-    if (joystickIndex > NUM_JOYSTICKS_SUPPORTED) {
+    if (joystickIndex < 0 || joystickIndex >= NUM_JOYSTICKS_SUPPORTED) {
         return -EINVAL;
     }
 
