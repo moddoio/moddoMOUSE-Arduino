@@ -71,7 +71,18 @@ enum register_index {
     REG_EXP_BOARD_BUTTONS_2,
     REG_EXP_BOARD_BUTTONS_3,
 
+    // Deep sleep timeout. Set to 0 to disable deep sleep
     REG_DEEP_SLEEP_TIMEOUT,
+
+    // Gamepad axes (two joysticks)
+    REG_GAMEPAD_AXIS_X,
+    REG_GAMEPAD_AXIS_Y,
+    REG_GAMEPAD_AXIS_Z,
+    REG_GAMEPAD_AXIS_RZ,
+
+    // Gamepad buttons
+    REG_GAMEPAD_BUTTONS,
+    REG_GAMEPAD_BUTTONS_H,
 
     NUM_REGISTERS,
 };
