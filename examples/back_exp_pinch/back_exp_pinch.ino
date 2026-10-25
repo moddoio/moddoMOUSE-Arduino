@@ -23,33 +23,35 @@
  *
  * Board: moddo pinch, with moddo SAMD Boards 0.5.0 or newer (low power mode uses
  * its RTC wakeups). Leave Tools > USB Config at the default: with USB disabled,
- * Serial moves to D5/D6, which this kit uses for the wheel.
+ * Serial moves to D5/D6, which this kit uses.
  *
  * Wiring (pinch pin: connected to)
  *   D0, D1   I2C to the mouse (SCL, SDA)
- *   D2       Sensor power: joystick VDD and the top of the three keypad ladders
- *   D3       Joystick press (closes to GND)
- *   D4       Scroll wheel encoder A
- *   D5       Scroll wheel click (closes to GND)
- *   D6       Scroll wheel encoder B
+ *   D2       Sensor power: the top of the three ladders, and the gate of the
+ *            N-MOSFET that connects the joystick's ground
+ *   D3       Scroll wheel encoder B
+ *   D4       Interrupt from the mouse (BACK_INT). Not used here: it's free for your
+ *            own sketches, like battery_monitoring and button_monitoring
+ *   D5       Joystick press (closes to the joystick's switched ground)
+ *   D6       Scroll wheel encoder A
  *   A0, A1   Joystick Y, X
- *   A2-A4    Keypad rows 0-2 (resistor ladders, see "Keypad ladders" below)
+ *   A2-A4    Ladders for keypad rows 0-2. Row 0's also has the wheel click (see
+ *            "Ladders" below)
  *
- * Keypad keys and their button numbers in moddoHUB, keypad seen from above:
+ * Keys and their button numbers in moddoHUB, keypad seen from above:
  *
  *            col 0  col 1  col 2  col 3
- *   row 0      0      1      2      3
- *   row 1      8      9     10     11
- *   row 2     16     17     18     19
- *
- *   Scroll wheel click: 24
+ *   row 0      0      1      2      3      wheel click: 4
+ *   row 1      8      9     10     11      (spare: 12)
+ *   row 2     16     17     18     19      (spare: 20)
  *
  * moddoHUB shows the 32 expansion board buttons as rows of 8, so the keypad is the
  * top-left 4x3 block of the Back Board grid, laid out like the keys. The 9-key
  * keypad has no column 3, so it uses 0-2, 8-10 and 16-18 with no change here.
+ * 12 and 20 are spare ladder inputs: a button wired to one just works.
  *
  * With the mouse's default key map, row 0 types Q R S T, row 1 Y Z 1 2, row 2
- * 7 8 9 0, and the wheel click types Space. To change one: open moddoHUB with the
+ * 7 8 9 0, and the wheel click types U. To change one: open moddoHUB with the
  * mouse connected, click its button number in the Back Board grid, then press
  * the keyboard key it should send and confirm. To make it a controller button
  * instead, turn on Controller in that dialog and pick one. The joystick and
@@ -62,6 +64,8 @@
  *   - within one row, only the lowest-column key held is seen. Hold column 2, then
  *     press column 0: column 2 reads as released until column 0 is let go. Bind
  *     keys you need to hold together, like movement keys, in different rows.
+ *   - the wheel click comes last in row 0, so it isn't seen while a row 0 key is
+ *     held
  *   - a row never reports a key that isn't pressed
  */
 
@@ -84,48 +88,50 @@
 bool serialOutput = !USE_LOW_POWER;
 
 
-// Pin mappings. The wheel pins need their own interrupt lines (EXTINT1 and EXTINT3
-// on the pinch) so no wheel step is missed. Everything else is read on each tick.
-// D5 is also the SAMD11's SWCLK: if it's low as the pinch comes out of reset (the
-// wheel click held down at power-up), the chip waits for a debugger instead of
-// starting. The sensor power and wheel pins can sit low at reset, so a button
-// goes there.
+// Pin mappings. Wheel A and the mouse's interrupt are on pins with their own
+// interrupt lines (EXTINT3 and EXTINT1 on the pinch), so they can wake it.
+// Everything else is read on each tick.
+// D5 is also the SAMD11's SWCLK: if it's low as the pinch comes out of reset, the
+// chip waits for a debugger instead of starting. The joystick press can go there
+// because the joystick's ground stays off until the sketch turns it on, so even a
+// press held at power-up leaves D5 high.
 #define SENSOR_POWER_PIN    2
-#define JOYSTICK_BUTTON_PIN 3
-#define WHEEL_A_PIN         4
-#define WHEEL_CLICK_PIN     5
-#define WHEEL_B_PIN         6
+#define WHEEL_B_PIN         3
+#define INTERRUPT_PIN       4   // from the mouse, not used here
+#define JOYSTICK_BUTTON_PIN 5
+#define WHEEL_A_PIN         6
 #define JOYSTICK_Y_PIN      A0
 #define JOYSTICK_X_PIN      A1
-const uint8_t KEYPAD_ROW_PINS[] = {A2, A3, A4};
+const uint8_t LADDER_PINS[] = {A2, A3, A4};
 
 // Bit 10 is Left joystick down in the gamepad button map
 #define JOYSTICK_BUTTON_BIT 10
 
 // Expansion board button bits. moddoHUB shows them as rows of 8.
-#define KEYPAD_ROWS      3
-#define KEYPAD_COLUMNS   4
+#define LADDER_ROWS      3
+#define LADDER_COLUMNS   5
 #define HUB_GRID_COLUMNS 8
-#define KEYPAD_BUTTON_BIT(row, col) ((row) * HUB_GRID_COLUMNS + (col))
-#define WHEEL_CLICK_BIT  24
+#define LADDER_BUTTON_BIT(row, col) ((row) * HUB_GRID_COLUMNS + (col))
 
-// Keypad ladders. Each row:
+// Ladders. Each row:
 //
 //   D2 --22k--+------ row pin (A2, A3 or A4)
 //             +-- col 0 key -- GND
-//            7.5k
+//            5.6k
 //             +-- col 1 key -- GND
-//            15k
+//            9.1k
 //             +-- col 2 key -- GND
-//            43k
+//            18k
 //             +-- col 3 key -- GND
+//            56k
+//             +-- col 4: wheel click on row 0, spare on rows 1 and 2
 //
-// A key pulls the row pin down to a fixed share of D2: 0%, 25%, 51% or 75% for
-// columns 0-3, and 100% with no key down. The thresholds are halfway between
+// A button pulls the row pin down to a fixed share of D2: 0%, 20%, 40%, 60% or 80%
+// for columns 0-4, and 100% with none down. The thresholds are halfway between
 // those and are worked out from these values, so change them to match your board.
 #define LADDER_PULLUP_OHMS 22000
 // The resistor before each column's tap, starting from the row pin
-const uint32_t LADDER_STEP_OHMS[KEYPAD_COLUMNS] = {0, 7500, 15000, 43000};
+const uint32_t LADDER_STEP_OHMS[LADDER_COLUMNS] = {0, 5600, 9100, 18000, 56000};
 
 // Change to INPUT if the board has its own pull-up resistors on the wheel pins:
 // the internal ones draw ~150uA while the wheel rests with both contacts closed.
@@ -153,7 +159,7 @@ const uint32_t LADDER_STEP_OHMS[KEYPAD_COLUMNS] = {0, 7500, 15000, 43000};
 
 moddoMOUSE mouse;
 
-uint16_t ladderThresholds[KEYPAD_COLUMNS];
+uint16_t ladderThresholds[LADDER_COLUMNS];
 int32_t joystickCenterX = (ADC_MAX + 1) / 2;
 int32_t joystickCenterY = (ADC_MAX + 1) / 2;
 // Smoothed joystick readings, in quarter ADC counts so the averaging stays accurate
@@ -166,11 +172,10 @@ struct Debouncer {
     uint8_t count;
 };
 
-Debouncer rowDebounce[KEYPAD_ROWS] = {{NO_KEY, NO_KEY, 0}, {NO_KEY, NO_KEY, 0}, {NO_KEY, NO_KEY, 0}};
+Debouncer rowDebounce[LADDER_ROWS] = {{NO_KEY, NO_KEY, 0}, {NO_KEY, NO_KEY, 0}, {NO_KEY, NO_KEY, 0}};
 Debouncer joystickButtonDebounce = {0, 0, 0};
-Debouncer wheelClickDebounce = {0, 0, 0};
 
-uint8_t wheelState;
+uint8_t wheelA;
 volatile int8_t wheelDetents = 0;
 volatile bool tickPending = true;
 
@@ -181,34 +186,23 @@ void onTick()
 }
 #endif
 
-uint8_t readWheel()
-{
-    return (digitalRead(WHEEL_A_PIN) << 1) | digitalRead(WHEEL_B_PIN);
-}
-
-// Called on every edge of either wheel pin. The wheel's encoder (Alps EC10E) has
-// 12 pulses and 24 detents per turn, so it rests in a detent whenever A and B
-// match (both open or both closed), two quadrature steps apart.
+// Called on every edge of wheel pin A, and on each loop in case an edge was missed.
+// The wheel's encoder (Alps EC10E) has 12 pulses and 24 detents per turn, so A
+// changes exactly once between two detents, while B holds still. If A and B differ
+// after the change the wheel turned one way, and if they match, the other way.
+// Contact bounce on A counts back and forth, so it cancels out.
 void onWheelEdge()
 {
-    // Indexed by previous state * 4 + new state: +1 or -1 for a step, 0 for no
-    // change or a jump over a state (bounce or a missed edge), which is safer to drop
-    static const int8_t QUADRATURE_STEPS[16] = {0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0};
-    static int8_t steps = 0;
+    uint8_t a = digitalRead(WHEEL_A_PIN);
+    if (a == wheelA) {
+        return;
+    }
+    wheelA = a;
 
-    uint8_t state = readWheel();
-    steps += QUADRATURE_STEPS[(wheelState << 2) | state];
-    wheelState = state;
-
-    if (state == 0b00 || state == 0b11) {
-        if (steps >= 2) {
-            wheelDetents++;
-        } else if (steps <= -2) {
-            wheelDetents--;
-        }
-        // Anything else was bounce that came back, or a missed edge. Either way,
-        // start the next detent from here.
-        steps = 0;
+    if (a != digitalRead(WHEEL_B_PIN)) {
+        wheelDetents++;
+    } else {
+        wheelDetents--;
     }
 }
 
@@ -227,11 +221,11 @@ void setupFastAnalogRead()
 #endif
 }
 
-// Expected reading with the key in `col` down: the ladder below its tap against
-// the pull-up. Column KEYPAD_COLUMNS means no key down.
+// Expected reading with the button in `col` down: the ladder below its tap against
+// the pull-up. Column LADDER_COLUMNS means no button down.
 uint16_t ladderLevel(int8_t col)
 {
-    if (col >= KEYPAD_COLUMNS) {
+    if (col >= LADDER_COLUMNS) {
         return ADC_MAX;
     }
     uint32_t below = 0;
@@ -243,16 +237,16 @@ uint16_t ladderLevel(int8_t col)
 
 void setupLadderThresholds()
 {
-    for (int8_t col = 0; col < KEYPAD_COLUMNS; col++) {
+    for (int8_t col = 0; col < LADDER_COLUMNS; col++) {
         ladderThresholds[col] = (ladderLevel(col) + ladderLevel(col + 1)) / 2;
     }
 }
 
-// Returns the column of the key held in this row, or NO_KEY
-int8_t readKeypadRow(uint8_t pin)
+// Returns the column of the button held on this ladder, or NO_KEY
+int8_t readLadder(uint8_t pin)
 {
     uint16_t reading = analogRead(pin);
-    for (int8_t col = 0; col < KEYPAD_COLUMNS; col++) {
+    for (int8_t col = 0; col < LADDER_COLUMNS; col++) {
         if (reading < ladderThresholds[col]) {
             return col;
         }
@@ -319,11 +313,11 @@ void setup()
 {
     if (serialOutput) Serial.begin(9600);
 
-    // Joystick and ladders are powered by a GPIO, so they only draw current while being read
+    // The ladders and (through its ground MOSFET) the joystick are switched by a
+    // GPIO, so they only draw current while being read
     pinMode(SENSOR_POWER_PIN, OUTPUT);
     digitalWrite(SENSOR_POWER_PIN, 0);
     pinMode(JOYSTICK_BUTTON_PIN, INPUT_PULLUP);
-    pinMode(WHEEL_CLICK_PIN, INPUT_PULLUP);
     pinMode(WHEEL_A_PIN, WHEEL_PIN_MODE);
     pinMode(WHEEL_B_PIN, WHEEL_PIN_MODE);
 
@@ -331,16 +325,14 @@ void setup()
     setupLadderThresholds();
     calibrateJoystick();
 
-    // The wheel can turn faster than the ticks, so decode it on every edge
-    wheelState = readWheel();
+    // The wheel can turn faster than the ticks, so count it on every edge of A
+    wheelA = digitalRead(WHEEL_A_PIN);
 #if USE_LOW_POWER
     LowPower.attachInterruptWakeup(WHEEL_A_PIN, onWheelEdge, CHANGE);
-    LowPower.attachInterruptWakeup(WHEEL_B_PIN, onWheelEdge, CHANGE);
     // Requires v0.5.0 of moddo SAMD boards package
     LowPower.attachInterruptWakeup(RTC_PERIODIC_WAKEUP, onTick, PinchRTC::PER_128HZ);
 #else
     attachInterrupt(digitalPinToInterrupt(WHEEL_A_PIN), onWheelEdge, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(WHEEL_B_PIN), onWheelEdge, CHANGE);
 #endif
 
     if (serialOutput) {
@@ -401,8 +393,15 @@ void loop()
     }
 
     noInterrupts(); // we need to do this operation atomically
-    int8_t detents = wheelDetents;
-    wheelDetents = 0;
+    onWheelEdge(); // catch an edge of A that the interrupt missed
+    // Only send the wheel while it rests in a detent (A and B match). Bounce, or a
+    // nudge that springs back, counts back and forth between detents and has
+    // cancelled out by then.
+    int8_t detents = 0;
+    if (wheelA == digitalRead(WHEEL_B_PIN)) {
+        detents = wheelDetents;
+        wheelDetents = 0;
+    }
     bool tick = tickPending;
     tickPending = false;
     interrupts();
@@ -429,25 +428,22 @@ void loop()
         smoothX4 += (int32_t)analogRead(JOYSTICK_X_PIN) - smoothX4 / 4;
         smoothY4 += (int32_t)analogRead(JOYSTICK_Y_PIN) - smoothY4 / 4;
 
-        int8_t rowKeys[KEYPAD_ROWS];
-        for (uint8_t row = 0; row < KEYPAD_ROWS; row++) {
-            rowKeys[row] = readKeypadRow(KEYPAD_ROW_PINS[row]);
+        int8_t rowKeys[LADDER_ROWS];
+        for (uint8_t row = 0; row < LADDER_ROWS; row++) {
+            rowKeys[row] = readLadder(LADDER_PINS[row]);
         }
 
-        // Read while powered, in case the joystick board's ground is switched too
+        // The joystick's ground is only connected while powered, so read the press now
         bool joystickButton = !digitalRead(JOYSTICK_BUTTON_PIN);
 
         digitalWrite(SENSOR_POWER_PIN, 0);
 
         uint32_t buttonBits = 0;
-        for (uint8_t row = 0; row < KEYPAD_ROWS; row++) {
+        for (uint8_t row = 0; row < LADDER_ROWS; row++) {
             int8_t col = debounce(rowDebounce[row], rowKeys[row]);
             if (col != NO_KEY) {
-                buttonBits |= 1UL << KEYPAD_BUTTON_BIT(row, col);
+                buttonBits |= 1UL << LADDER_BUTTON_BIT(row, col);
             }
-        }
-        if (debounce(wheelClickDebounce, !digitalRead(WHEEL_CLICK_PIN))) {
-            buttonBits |= 1UL << WHEEL_CLICK_BIT;
         }
 
         uint16_t gamepadBits = 0;
@@ -502,8 +498,9 @@ void loop()
     }
 
 #if USE_LOW_POWER
-    if (!tickPending && wheelDetents == 0) {
-        // Sleep until the next RTC tick or wheel movement
+    if (!tickPending) {
+        // Sleep until the next RTC tick or wheel movement. Wheel steps held back
+        // between detents go out on a later tick, once the wheel settles.
         mouse.suspend();
         LowPower.sleep();
         mouse.resume();
