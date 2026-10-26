@@ -114,22 +114,25 @@ const uint8_t KEYPAD_ROW_PINS[] = {A2, A3, A4};
 
 // Keypad ladders. Each row:
 //
-//   VDD --22k--+------ row pin (A2, A3 or A4)
-//              +-- col 0 key -- GND
-//             7.5k
-//              +-- col 1 key -- GND
-//             15k
-//              +-- col 2 key -- GND
-//             43k
-//              +-- col 3 key -- GND
+//   VDD --220k--+------ row pin (A2, A3 or A4) --1nF-- GND
+//               +-- col 0 key -- GND
+//              75k
+//               +-- col 1 key -- GND
+//             150k
+//               +-- col 2 key -- GND
+//             430k
+//               +-- col 3 key -- GND
 //
-// With every key open no current flows, so the ladders stay powered all the time.
+// With every key open no current flows, so the ladders stay powered all the time,
+// and a held key draws at most ~15uA. The 1nF on each row pin is needed with
+// resistors this big: the ADC samples from it instead of through 220k, and it
+// still settles within about 1ms when a key is pressed or released.
 // A key pulls the row pin down to a fixed share of VDD: 0%, 25%, 51% or 75% for
 // columns 0-3, and 100% with no key down. The thresholds are halfway between
 // those and are worked out from these values, so change them to match your board.
-#define LADDER_PULLUP_OHMS 22000
+#define LADDER_PULLUP_OHMS 220000
 // The resistor before each column's tap, starting from the row pin
-const uint32_t LADDER_STEP_OHMS[KEYPAD_COLUMNS] = {0, 7500, 15000, 43000};
+const uint32_t LADDER_STEP_OHMS[KEYPAD_COLUMNS] = {0, 75000, 150000, 430000};
 
 // Change to INPUT if the board has its own pull-up resistors on the wheel pins:
 // the internal ones draw ~150uA while the wheel rests with both contacts closed.
@@ -209,8 +212,8 @@ void onWheelEdge()
 
 // analogRead() defaults to a 94kHz ADC clock and the longest sample time, about
 // 0.4ms per read. Five reads per tick would keep the pinch awake a quarter of the
-// time, so run the ADC at 1.5MHz with a sample time that still fully charges
-// through the ladders. Each read then takes well under 20us.
+// time, so run the ADC at 1.5MHz. Its sample time is plenty for the joystick and
+// the ladders' 1nF capacitors. Each read then takes well under 20us.
 void setupFastAnalogRead()
 {
 #if defined(ARDUINO_MODDO_PINCH)
