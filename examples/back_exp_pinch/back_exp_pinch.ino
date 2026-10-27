@@ -45,14 +45,14 @@
  *   row 1      8      9     10     11
  *   row 2     16     17     18     19
  *
- *   Scroll wheel click: 24
+ *   Scroll wheel click: 7 (top right of the grid)
  *
  * moddoHUB shows the 32 expansion board buttons as rows of 8, so the keypad is the
  * top-left 4x3 block of the Back Board grid, laid out like the keys. The 9-key
  * keypad has no column 3, so it uses 0-2, 8-10 and 16-18 with no change here.
  *
  * With the mouse's default key map, row 0 types Q R S T, row 1 Y Z 1 2, row 2
- * 7 8 9 0, and the wheel click types Space. To change one: open moddoHUB with the
+ * 7 8 9 0, and the wheel click types X. To change one: open moddoHUB with the
  * mouse connected, click its button number in the Back Board grid, then press
  * the keyboard key it should send and confirm. To make it a controller button
  * instead, turn on Controller in that dialog and pick one. The joystick and
@@ -110,7 +110,7 @@ const uint8_t KEYPAD_ROW_PINS[] = {A2, A3, A4};
 #define KEYPAD_COLUMNS   4
 #define HUB_GRID_COLUMNS 8
 #define KEYPAD_BUTTON_BIT(row, col) ((row) * HUB_GRID_COLUMNS + (col))
-#define WHEEL_CLICK_BIT  24
+#define WHEEL_CLICK_BIT  7
 
 // Keypad ladders. Each row:
 //
