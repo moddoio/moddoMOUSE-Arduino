@@ -58,14 +58,10 @@
  * instead, turn on Controller in that dialog and pick one. The joystick and
  * controller buttons work over USB and 2.4G, not Bluetooth.
  *
- * Holding two keys in the same row: each row is one analog pin, and the keys in
- * a row are chained so that the key nearest the pin (the lowest column) cuts off
- * the ones after it. So:
- *   - keys in different rows always work together (up to 3 at once, one per row)
- *   - within one row, only the lowest-column key held is seen. Hold column 2, then
- *     press column 0: column 2 reads as released until column 0 is let go. Bind
- *     keys you need to hold together, like movement keys, in different rows.
- *   - a row never reports a key that isn't pressed
+ * Any combination of keys can be held at once, all 12 included. Each row is one
+ * analog pin, and every key in it pulls the pin down through its own resistor
+ * (weighted 1:2:4:8), so each of the 16 combinations in a row reads as its own
+ * voltage.
  */
 
 #include <moddoMOUSE.h>
@@ -114,25 +110,25 @@ const uint8_t KEYPAD_ROW_PINS[] = {A2, A3, A4};
 
 // Keypad ladders. Each row:
 //
-//   VDD --220k--+------ row pin (A2, A3 or A4) --1nF-- GND
-//               +-- col 0 key -- GND
-//              75k
-//               +-- col 1 key -- GND
-//             150k
-//               +-- col 2 key -- GND
-//             430k
-//               +-- col 3 key -- GND
+//   VDD --22k--+------ row pin (A2, A3 or A4) --1nF-- GND
+//              +--300k-- col 0 key -- GND
+//              +--150k-- col 1 key -- GND
+//              +--75k--- col 2 key -- GND
+//              +--39k--- col 3 key -- GND
 //
-// With every key open no current flows, so the ladders stay powered all the time,
-// and a held key draws at most ~15uA. The 1nF on each row pin is needed with
-// resistors this big: the ADC samples from it instead of through 220k, and it
-// still settles within about 1ms when a key is pressed or released.
-// A key pulls the row pin down to a fixed share of VDD: 0%, 25%, 51% or 75% for
-// columns 0-3, and 100% with no key down. The thresholds are halfway between
-// those and are worked out from these values, so change them to match your board.
-#define LADDER_PULLUP_OHMS 220000
-// The resistor before each column's tap, starting from the row pin
-const uint32_t LADDER_STEP_OHMS[KEYPAD_COLUMNS] = {0, 75000, 150000, 430000};
+// With every key open no current flows, so the ladders stay powered all the time;
+// a row draws at most ~70uA with all four keys held. Each key adds its own
+// current, so every combination pulls the row pin to its own share of VDD, from
+// 100% with no key down to 49% with all four. The closest two are only 1.76% of
+// VDD apart: 1% resistors move a level by up to 0.5%, which still fits, and 0.1%
+// ones leave more room. Each reading is matched to
+// the nearest expected level, worked out from these values, so change them to
+// match your board.
+#define LADDER_PULLUP_OHMS 22000
+const uint32_t LADDER_KEY_OHMS[KEYPAD_COLUMNS] = {300000, 150000, 75000, 39000};
+#define LADDER_COMBINATIONS (1 << KEYPAD_COLUMNS)
+// Each row is read this many times and summed, to average out ADC noise
+#define LADDER_READS 4
 
 // Change to INPUT if the board has its own pull-up resistors on the wheel pins:
 // the internal ones draw ~150uA while the wheel rests with both contacts closed.
@@ -145,24 +141,23 @@ const uint32_t LADDER_STEP_OHMS[KEYPAD_COLUMNS] = {0, 75000, 150000, 430000};
 #define JOYSTICK_INVERT_Y 0
 // The stick's center is measured at startup. If it's further than this from
 // mid-scale (someone was holding the stick), mid-scale is used instead.
-#define JOYSTICK_CENTER_TOLERANCE 200
+#define JOYSTICK_CENTER_TOLERANCE 800
 // The stick doesn't quite reach the ends of the ADC range, so reach full
 // deflection this many counts before them
-#define JOYSTICK_END_MARGIN 32
+#define JOYSTICK_END_MARGIN 128
 // Magnetic (Hall or TMR) sticks need a few ms after power-up before their output
 // is right, so wait this long before measuring the center
 #define JOYSTICK_STARTUP_MS 10
 
-#define ADC_MAX 1023            // analogRead() is 10 bits by default
+#define ADC_MAX 4095            // readings are 12 bits (set in setupFastAnalogRead())
 #define TICK_HZ 128             // 128Hz is the fastest wakeup frequency supported by the RTC
 #define DEBOUNCE_SAMPLES 2      // a key must read the same on 2 ticks in a row (8-16ms)
 #define REFRESH_TICKS TICK_HZ   // resend everything every second, in case the mouse restarted
 
-#define NO_KEY -1
-
 moddoMOUSE mouse;
 
-uint16_t ladderThresholds[KEYPAD_COLUMNS];
+// Expected sum of LADDER_READS readings for each combination of keys held in a row
+uint16_t ladderLevels[LADDER_COMBINATIONS];
 int32_t joystickCenterX = (ADC_MAX + 1) / 2;
 int32_t joystickCenterY = (ADC_MAX + 1) / 2;
 // Smoothed joystick readings, in quarter ADC counts so the averaging stays accurate
@@ -175,7 +170,7 @@ struct Debouncer {
     uint8_t count;
 };
 
-Debouncer rowDebounce[KEYPAD_ROWS] = {{NO_KEY, NO_KEY, 0}, {NO_KEY, NO_KEY, 0}, {NO_KEY, NO_KEY, 0}};
+Debouncer rowDebounce[KEYPAD_ROWS] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
 Debouncer joystickButtonDebounce = {0, 0, 0};
 Debouncer wheelClickDebounce = {0, 0, 0};
 
@@ -211,11 +206,12 @@ void onWheelEdge()
 }
 
 // analogRead() defaults to a 94kHz ADC clock and the longest sample time, about
-// 0.4ms per read. Five reads per tick would keep the pinch awake a quarter of the
+// 0.4ms per read. The 17 reads per tick would keep the pinch awake most of the
 // time, so run the ADC at 1.5MHz. Its sample time is plenty for the joystick and
 // the ladders' 1nF capacitors. Each read then takes well under 20us.
 void setupFastAnalogRead()
 {
+    analogReadResolution(12);
 #if defined(ARDUINO_MODDO_PINCH)
     analogRead(JOYSTICK_X_PIN); // the core sets up the ADC on the first read
     ADC->CTRLB.bit.PRESCALER = ADC_CTRLB_PRESCALER_DIV32_Val;
@@ -225,37 +221,45 @@ void setupFastAnalogRead()
 #endif
 }
 
-// Expected reading with the key in `col` down: the ladder below its tap against
-// the pull-up. Column KEYPAD_COLUMNS means no key down.
-uint16_t ladderLevel(int8_t col)
+// Expected level for each combination: the pull-up's conductance against the sum
+// of the held keys'. Conductances are in nanosiemens so the integer math is exact
+// enough and stays within 32 bits.
+void setupLadderLevels()
 {
-    if (col >= KEYPAD_COLUMNS) {
-        return ADC_MAX;
-    }
-    uint32_t below = 0;
-    for (int8_t i = 0; i <= col; i++) {
-        below += LADDER_STEP_OHMS[i];
-    }
-    return ADC_MAX * below / (below + LADDER_PULLUP_OHMS);
-}
-
-void setupLadderThresholds()
-{
-    for (int8_t col = 0; col < KEYPAD_COLUMNS; col++) {
-        ladderThresholds[col] = (ladderLevel(col) + ladderLevel(col + 1)) / 2;
+    const uint32_t pullup = 1000000000UL / LADDER_PULLUP_OHMS;
+    for (uint8_t keys = 0; keys < LADDER_COMBINATIONS; keys++) {
+        uint32_t held = 0;
+        for (uint8_t col = 0; col < KEYPAD_COLUMNS; col++) {
+            if (keys & (1 << col)) {
+                held += 1000000000UL / LADDER_KEY_OHMS[col];
+            }
+        }
+        ladderLevels[keys] = (uint32_t)ADC_MAX * LADDER_READS * pullup / (pullup + held);
     }
 }
 
-// Returns the column of the key held in this row, or NO_KEY
+// Returns the keys held in this row, one bit per column
 int8_t readKeypadRow(uint8_t pin)
 {
-    uint16_t reading = analogRead(pin);
-    for (int8_t col = 0; col < KEYPAD_COLUMNS; col++) {
-        if (reading < ladderThresholds[col]) {
-            return col;
+    // The first conversion after switching channels can still carry some of the
+    // previous one, so throw it away
+    analogRead(pin);
+
+    uint16_t reading = 0;
+    for (uint8_t i = 0; i < LADDER_READS; i++) {
+        reading += analogRead(pin);
+    }
+
+    uint8_t keys = 0;
+    uint16_t closest = UINT16_MAX;
+    for (uint8_t combination = 0; combination < LADDER_COMBINATIONS; combination++) {
+        uint16_t distance = abs((int32_t)reading - ladderLevels[combination]);
+        if (distance < closest) {
+            closest = distance;
+            keys = combination;
         }
     }
-    return NO_KEY;
+    return keys;
 }
 
 // Only accept a new reading once it has been the same for DEBOUNCE_SAMPLES ticks
@@ -321,7 +325,7 @@ void setup()
     pinMode(WHEEL_B_PIN, WHEEL_PIN_MODE);
 
     setupFastAnalogRead();
-    setupLadderThresholds();
+    setupLadderLevels();
     calibrateJoystick();
 
     // The wheel can turn faster than the ticks, so count it on every edge of A
@@ -425,9 +429,11 @@ void loop()
 
         uint32_t buttonBits = 0;
         for (uint8_t row = 0; row < KEYPAD_ROWS; row++) {
-            int8_t col = debounce(rowDebounce[row], readKeypadRow(KEYPAD_ROW_PINS[row]));
-            if (col != NO_KEY) {
-                buttonBits |= 1UL << KEYPAD_BUTTON_BIT(row, col);
+            uint8_t keys = debounce(rowDebounce[row], readKeypadRow(KEYPAD_ROW_PINS[row]));
+            for (uint8_t col = 0; col < KEYPAD_COLUMNS; col++) {
+                if (keys & (1 << col)) {
+                    buttonBits |= 1UL << KEYPAD_BUTTON_BIT(row, col);
+                }
             }
         }
         if (debounce(wheelClickDebounce, !digitalRead(WHEEL_CLICK_PIN))) {
