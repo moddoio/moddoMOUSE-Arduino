@@ -152,7 +152,8 @@ const uint32_t LADDER_KEY_OHMS[KEYPAD_COLUMNS] = {300000, 150000, 75000, 39000};
 #define ADC_MAX 4095            // readings are 12 bits (set in setupFastAnalogRead())
 #define TICK_HZ 128             // 128Hz is the fastest wakeup frequency supported by the RTC
 #define DEBOUNCE_SAMPLES 2      // a key must read the same on 2 ticks in a row (8-16ms)
-#define REFRESH_TICKS TICK_HZ   // resend everything every second, in case the mouse restarted
+// Resend the stick and gamepad buttons every second, in case the mouse restarted
+#define REFRESH_TICKS TICK_HZ
 
 moddoMOUSE mouse;
 
@@ -379,6 +380,7 @@ void loop()
 {
     static bool mouseConnected = false;
     static uint8_t ticksUntilRefresh = 0;
+    static bool buttonsSent = false;
     static uint32_t lastButtonBits = 0;
     static uint16_t lastGamepadBits = 0;
     static int8_t lastX = 0;
@@ -392,6 +394,7 @@ void loop()
         }
         // Send everything on the next tick, but not wheel steps from while we were disconnected
         ticksUntilRefresh = 0;
+        buttonsSent = false;
         wheelDetents = 0;
     }
 
@@ -448,11 +451,14 @@ void loop()
         int8_t x = axisToGamepad(smoothX4 / 4, joystickCenterX, JOYSTICK_INVERT_X);
         int8_t y = axisToGamepad(smoothY4 / 4, joystickCenterY, JOYSTICK_INVERT_Y);
 
-        // Only write what changed, plus everything once a second
+        // Only write what changed, plus the stick and gamepad buttons once a second
         bool refresh = (ticksUntilRefresh == 0);
         ticksUntilRefresh = refresh ? REFRESH_TICKS : ticksUntilRefresh - 1;
 
-        if (buttonBits != lastButtonBits || refresh) {
+        // The buttons (keys and wheel click) only once after connecting, then on change: older
+        // mouse firmware wakes from idle on every write to them, even an unchanged one, so
+        // resending them would keep it from ever going to sleep
+        if (buttonBits != lastButtonBits || !buttonsSent) {
             if (mouse.setButtons(buttonBits) < 0) {
                 if (serialOutput) Serial.println("Couldn't write buttons: error");
                 mouseConnected = false;
@@ -463,6 +469,7 @@ void loop()
                 Serial.println(buttonBits, HEX);
             }
             lastButtonBits = buttonBits;
+            buttonsSent = true;
         }
 
         if (gamepadBits != lastGamepadBits || refresh) {
