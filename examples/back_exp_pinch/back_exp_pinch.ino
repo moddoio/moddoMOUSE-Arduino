@@ -15,7 +15,7 @@
  * This is the sketch the pre-assembled back expansion kit (a pinch on the back
  * expansion base board) ships with. It turns:
  *   - the joystick into the left stick of a game controller, and pressing it into
- *     the left stick button (L3)
+ *     the left stick button (L3), which you can rebind in the moddoHUB web app
  *   - each keypad key into an expansion board button, which you can bind to a
  *     keyboard key or a controller button in the moddoHUB web app
  *   - the scroll wheel into horizontal scrolling, and its click into one more
@@ -55,8 +55,10 @@
  * 7 8 9 0, and the wheel click types X. To change one: open moddoHUB with the
  * mouse connected, click its button number in the Back Board grid, then press
  * the keyboard key it should send and confirm. To make it a controller button
- * instead, turn on Controller in that dialog and pick one. The joystick and
- * controller buttons work over USB and 2.4G, not Bluetooth.
+ * instead, turn on Controller in that dialog and pick one. The joystick press is
+ * changed the same way, by clicking the stick's cap on the Primary Joystick card
+ * in Extra Inputs. The joystick and controller buttons work over USB, 2.4G and
+ * Bluetooth.
  *
  * Any combination of keys can be held at once, all 12 included. Each row is one
  * analog pin, and every key in it pulls the pin down through its own resistor
