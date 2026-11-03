@@ -15,7 +15,7 @@
  * This is the sketch the pre-assembled back expansion kit (a pinch on the back
  * expansion base board) ships with. It turns:
  *   - the joystick into the left stick of a game controller, and pressing it into
- *     a bindable button, which you can make the left stick button (L3)
+ *     the left stick button (L3)
  *   - each keypad key into an expansion board button, which you can bind to a
  *     keyboard key or a controller button in the moddoHUB web app
  *   - the scroll wheel into horizontal scrolling, and its click into one more
@@ -45,7 +45,6 @@
  *   row 1      8      9     10     11
  *   row 2     16     17     18     19
  *
- *   Joystick press:     6
  *   Scroll wheel click: 7 (top right of the grid)
  *
  * moddoHUB shows the 32 expansion board buttons as rows of 8, so the keypad is the
@@ -53,13 +52,11 @@
  * keypad has no column 3, so it uses 0-2, 8-10 and 16-18 with no change here.
  *
  * With the mouse's default key map, row 0 types Q R S T, row 1 Y Z 1 2, row 2
- * 7 8 9 0, the joystick press types W and the wheel click types X. To change one:
- * open moddoHUB with the mouse connected, click its button number in the Back
- * Board grid, then press the keyboard key it should send and confirm. To make it
- * a controller button instead, turn on Controller in that dialog and pick one:
- * the left stick button for the joystick press, to use it like a game
- * controller's. The joystick and controller buttons work over USB, 2.4G and
- * Bluetooth.
+ * 7 8 9 0, and the wheel click types X. To change one: open moddoHUB with the
+ * mouse connected, click its button number in the Back Board grid, then press
+ * the keyboard key it should send and confirm. To make it a controller button
+ * instead, turn on Controller in that dialog and pick one. The joystick and
+ * controller buttons work over USB and 2.4G, not Bluetooth.
  *
  * Any combination of keys can be held at once, all 12 included. Each row is one
  * analog pin, and every key in it pulls the pin down through its own resistor
@@ -101,13 +98,15 @@ bool serialOutput = !USE_LOW_POWER;
 #define JOYSTICK_X_PIN      A1
 const uint8_t KEYPAD_ROW_PINS[] = {A2, A3, A4};
 
+// Bit 10 is Left joystick down in the gamepad button map
+#define JOYSTICK_BUTTON_BIT 10
+
 // Expansion board button bits. moddoHUB shows them as rows of 8.
 #define KEYPAD_ROWS      3
 #define KEYPAD_COLUMNS   4
 #define HUB_GRID_COLUMNS 8
 #define KEYPAD_BUTTON_BIT(row, col) ((row) * HUB_GRID_COLUMNS + (col))
-#define JOYSTICK_BUTTON_BIT 6
-#define WHEEL_CLICK_BIT     7
+#define WHEEL_CLICK_BIT  7
 
 // Keypad ladders. Each row:
 //
@@ -153,7 +152,7 @@ const uint32_t LADDER_KEY_OHMS[KEYPAD_COLUMNS] = {300000, 150000, 75000, 39000};
 #define ADC_MAX 4095            // readings are 12 bits (set in setupFastAnalogRead())
 #define TICK_HZ 128             // 128Hz is the fastest wakeup frequency supported by the RTC
 #define DEBOUNCE_SAMPLES 2      // a key must read the same on 2 ticks in a row (8-16ms)
-// Resend the stick every second, in case the mouse restarted
+// Resend the stick and gamepad buttons every second, in case the mouse restarted
 #define REFRESH_TICKS TICK_HZ
 
 moddoMOUSE mouse;
@@ -383,6 +382,7 @@ void loop()
     static uint8_t ticksUntilRefresh = 0;
     static bool buttonsSent = false;
     static uint32_t lastButtonBits = 0;
+    static uint16_t lastGamepadBits = 0;
     static int8_t lastX = 0;
     static int8_t lastY = 0;
 
@@ -442,20 +442,22 @@ void loop()
         if (debounce(wheelClickDebounce, !digitalRead(WHEEL_CLICK_PIN))) {
             buttonBits |= 1UL << WHEEL_CLICK_BIT;
         }
+
+        uint16_t gamepadBits = 0;
         if (debounce(joystickButtonDebounce, !digitalRead(JOYSTICK_BUTTON_PIN))) {
-            buttonBits |= 1UL << JOYSTICK_BUTTON_BIT;
+            gamepadBits |= 1 << JOYSTICK_BUTTON_BIT;
         }
 
         int8_t x = axisToGamepad(smoothX4 / 4, joystickCenterX, JOYSTICK_INVERT_X);
         int8_t y = axisToGamepad(smoothY4 / 4, joystickCenterY, JOYSTICK_INVERT_Y);
 
-        // Only write what changed, plus the stick once a second
+        // Only write what changed, plus the stick and gamepad buttons once a second
         bool refresh = (ticksUntilRefresh == 0);
         ticksUntilRefresh = refresh ? REFRESH_TICKS : ticksUntilRefresh - 1;
 
-        // The buttons (keys, joystick press and wheel click) only once after connecting, then on
-        // change: older mouse firmware wakes from idle on every write to them, even an unchanged
-        // one, so resending them would keep it from ever going to sleep
+        // The buttons (keys and wheel click) only once after connecting, then on change: older
+        // mouse firmware wakes from idle on every write to them, even an unchanged one, so
+        // resending them would keep it from ever going to sleep
         if (buttonBits != lastButtonBits || !buttonsSent) {
             if (mouse.setButtons(buttonBits) < 0) {
                 if (serialOutput) Serial.println("Couldn't write buttons: error");
@@ -468,6 +470,15 @@ void loop()
             }
             lastButtonBits = buttonBits;
             buttonsSent = true;
+        }
+
+        if (gamepadBits != lastGamepadBits || refresh) {
+            if (mouse.setGamepadButtons(gamepadBits) < 0) {
+                if (serialOutput) Serial.println("Couldn't write gamepad buttons: error");
+                mouseConnected = false;
+                return;
+            }
+            lastGamepadBits = gamepadBits;
         }
 
         if (x != lastX || y != lastY || refresh) {
