@@ -113,6 +113,9 @@ enum liftDistanceOptions: uint8_t {
 #define ANGLE_TUNE_MIN -30
 #define ANGLE_TUNE_MAX 30
 
+#define JOYSTICK_MIN_VAL (-INT8_MAX) // -127 (not using INT8_MIN so it's symmetrical)
+#define JOYSTICK_MAX_VAL (INT8_MAX)  // 127
+
 class moddoMOUSE
 {
     public:
@@ -159,6 +162,14 @@ class moddoMOUSE
         int8_t getVerticalWheel(int8_t *delta);
         int8_t setHorizontalWheel(int8_t delta);
         int8_t getHorizontalWheel(int8_t *delta);
+
+        // Gamepad buttons
+        int8_t setGamepadButtons(uint16_t button_bits);
+        // Joysticks
+        int8_t setLeftJoystick(int8_t x, int8_t y);
+        int8_t setRightJoystick(int8_t x, int8_t y);
+        int8_t getLeftJoystick(int8_t *x, int8_t *y);
+        int8_t getRightJoystick(int8_t *x, int8_t *y);
 
     private:
         int i2cRead(uint8_t reg, void *buf, uint8_t length);
