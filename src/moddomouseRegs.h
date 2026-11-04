@@ -75,10 +75,10 @@ enum register_index {
     REG_DEEP_SLEEP_TIMEOUT,
 
     // Gamepad axes (two joysticks)
-    REG_GAMEPAD_AXIS_X,
-    REG_GAMEPAD_AXIS_Y,
-    REG_GAMEPAD_AXIS_Z,
-    REG_GAMEPAD_AXIS_RZ,
+    REG_GAMEPAD_LEFT_STICK_X,
+    REG_GAMEPAD_LEFT_STICK_Y,
+    REG_GAMEPAD_RIGHT_STICK_X,
+    REG_GAMEPAD_RIGHT_STICK_Y,
 
     // Gamepad buttons
     REG_GAMEPAD_BUTTONS,

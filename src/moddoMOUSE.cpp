@@ -630,16 +630,11 @@ int8_t moddoMOUSE::setGamepadButtons(uint16_t button_bits)
     return 0;
 }
 
-int8_t moddoMOUSE::setGamepadJoystick(int8_t joystickIndex, int8_t x, int8_t y)
+int8_t moddoMOUSE::setLeftJoystick(int8_t x, int8_t y)
 {
-    if (joystickIndex < 0 || joystickIndex >= NUM_JOYSTICKS_SUPPORTED) {
-        return -EINVAL;
-    }
-
     int8_t data[2] = {x, y};
-    uint8_t reg = REG_GAMEPAD_AXIS_X + (joystickIndex * 2);
 
-    int8_t bytesWritten = i2cWrite(reg, data, sizeof(data));
+    int8_t bytesWritten = i2cWrite(REG_GAMEPAD_LEFT_STICK_X, data, sizeof(data));
     if (bytesWritten != sizeof(data)) {
         return -EIO;
     }
@@ -647,20 +642,46 @@ int8_t moddoMOUSE::setGamepadJoystick(int8_t joystickIndex, int8_t x, int8_t y)
     return 0;
 }
 
-int8_t moddoMOUSE::getGamepadJoystick(int8_t joystickIndex, int8_t *x, int8_t *y)
+int8_t moddoMOUSE::setRightJoystick(int8_t x, int8_t y)
 {
-    if (joystickIndex < 0 || joystickIndex >= NUM_JOYSTICKS_SUPPORTED) {
-        return -EINVAL;
+    int8_t data[2] = {x, y};
+
+    int8_t bytesWritten = i2cWrite(REG_GAMEPAD_RIGHT_STICK_X, data, sizeof(data));
+    if (bytesWritten != sizeof(data)) {
+        return -EIO;
     }
 
+    return 0;
+}
+
+int8_t moddoMOUSE::getLeftJoystick(int8_t *x, int8_t *y)
+{
     if (x == NULL || y == NULL) {
         return -EINVAL;
     }
 
     int8_t data[2];
-    uint8_t reg = REG_GAMEPAD_AXIS_X + (joystickIndex * 2);
 
-    int8_t bytesRead = i2cRead(reg, data, sizeof(data));
+    int8_t bytesRead = i2cRead(REG_GAMEPAD_LEFT_STICK_X, data, sizeof(data));
+    if (bytesRead != sizeof(data)) {
+        return -EIO;
+    }
+
+    *x = data[0];
+    *y = data[1];
+
+    return 0;
+}
+
+int8_t moddoMOUSE::getRightJoystick(int8_t *x, int8_t *y)
+{
+    if (x == NULL || y == NULL) {
+        return -EINVAL;
+    }
+
+    int8_t data[2];
+
+    int8_t bytesRead = i2cRead(REG_GAMEPAD_RIGHT_STICK_X, data, sizeof(data));
     if (bytesRead != sizeof(data)) {
         return -EIO;
     }

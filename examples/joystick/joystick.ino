@@ -180,7 +180,7 @@ void loop()
         }
     }
 
-    mouse.setGamepadJoystick(0, xAvg, yAvg);
+    mouse.setLeftJoystick(xAvg, yAvg);
 
 #if USE_LOW_POWER
     mouse.suspend();

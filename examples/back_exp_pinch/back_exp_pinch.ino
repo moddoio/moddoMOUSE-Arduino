@@ -484,7 +484,7 @@ void loop()
         }
 
         if (x != lastX || y != lastY || refresh) {
-            if (mouse.setGamepadJoystick(0, x, y) < 0) {
+            if (mouse.setLeftJoystick(x, y) < 0) {
                 if (serialOutput) Serial.println("Couldn't write joystick: error");
                 mouseConnected = false;
                 return;
